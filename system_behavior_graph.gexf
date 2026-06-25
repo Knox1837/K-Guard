@@ -1,7 +1,7 @@
 <?xml version='1.0' encoding='utf-8'?>
 <gexf xmlns="http://www.gexf.net/1.2draft" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.gexf.net/1.2draft http://www.gexf.net/1.2draft/gexf.xsd" version="1.2">
   <meta lastmodifieddate="2026-06-25">
-    <creator>NetworkX 3.6.1</creator>
+    <creator>NetworkX 3.2.1</creator>
   </meta>
   <graph defaultedgetype="directed" mode="static" name="">
     <attributes mode="static" class="edge">
@@ -11,49 +11,39 @@
       <attribute id="0" title="type" type="string" />
     </attributes>
     <nodes>
-      <node id="polkitd (PID:1493)" label="polkitd (PID:1493)">
+      <node id="python3 (PID:13575)" label="python3 (PID:13575)">
         <attvalues>
           <attvalue for="0" value="process" />
         </attvalues>
       </node>
-      <node id="/proc/self/fdinfo/10" label="/proc/self/fdinfo/10">
+      <node id="/usr/pyvenv.cfg" label="/usr/pyvenv.cfg">
         <attvalues>
           <attvalue for="0" value="file_data" />
         </attvalues>
       </node>
-      <node id="/proc/3257/stat" label="/proc/3257/stat">
+      <node id="/usr/bin/pyvenv.cfg" label="/usr/bin/pyvenv.cfg">
         <attvalues>
           <attvalue for="0" value="file_data" />
         </attvalues>
       </node>
-      <node id="/proc/self/fdinfo/9" label="/proc/self/fdinfo/9">
+      <node id="/usr/bin/python3._pth" label="/usr/bin/python3._pth">
         <attvalues>
           <attvalue for="0" value="file_data" />
         </attvalues>
       </node>
-      <node id="/proc/3257/cgroup" label="/proc/3257/cgroup">
+      <node id="/usr/bin/python3.14._pth" label="/usr/bin/python3.14._pth">
         <attvalues>
           <attvalue for="0" value="file_data" />
         </attvalues>
       </node>
-      <node id="/proc/1/cgroup" label="/proc/1/cgroup">
+      <node id="/usr/bin/pybuilddir.txt" label="/usr/bin/pybuilddir.txt">
         <attvalues>
           <attvalue for="0" value="file_data" />
         </attvalues>
       </node>
-      <node id="/etc/passwd" label="/etc/passwd">
+      <node id="/etc/localtime" label="/etc/localtime">
         <attvalues>
           <attvalue for="0" value="file_data" />
-        </attvalues>
-      </node>
-      <node id="/etc/group" label="/etc/group">
-        <attvalues>
-          <attvalue for="0" value="file_data" />
-        </attvalues>
-      </node>
-      <node id="python3 (PID:14672)" label="python3 (PID:14672)">
-        <attvalues>
-          <attvalue for="0" value="process" />
         </attvalues>
       </node>
       <node id="/usr/lib/python3.14/*" label="/usr/lib/python3.14/*">
@@ -61,27 +51,27 @@
           <attvalue for="0" value="file_data" />
         </attvalues>
       </node>
-      <node id="systemd-logind (PID:1517)" label="systemd-logind (PID:1517)">
-        <attvalues>
-          <attvalue for="0" value="process" />
-        </attvalues>
-      </node>
-      <node id="/run/systemd/inhibit/220.ref" label="/run/systemd/inhibit/220.ref">
+      <node id="/usr/local/lib/python3.14/dist-packages" label="/usr/local/lib/python3.14/dist-packages">
         <attvalues>
           <attvalue for="0" value="file_data" />
         </attvalues>
       </node>
-      <node id="/run/systemd/inhibit" label="/run/systemd/inhibit">
+      <node id="/home/knox/K-Guard/graphengine.py" label="/home/knox/K-Guard/graphengine.py">
         <attvalues>
           <attvalue for="0" value="file_data" />
         </attvalues>
       </node>
-      <node id=".../site-packages/*" label=".../site-packages/*">
+      <node id="/home/knox/K-Guard" label="/home/knox/K-Guard">
         <attvalues>
           <attvalue for="0" value="file_data" />
         </attvalues>
       </node>
       <node id="/etc/ld.so.cache" label="/etc/ld.so.cache">
+        <attvalues>
+          <attvalue for="0" value="file_data" />
+        </attvalues>
+      </node>
+      <node id="/usr/lib/x86_64-linux-gnu/libuuid.so.1" label="/usr/lib/x86_64-linux-gnu/libuuid.so.1">
         <attvalues>
           <attvalue for="0" value="file_data" />
         </attvalues>
@@ -101,37 +91,182 @@
           <attvalue for="0" value="file_data" />
         </attvalues>
       </node>
-      <node id="/home/ashish/K-Guard" label="/home/ashish/K-Guard">
-        <attvalues>
-          <attvalue for="0" value="file_data" />
-        </attvalues>
-      </node>
-      <node id="/home/ashish/.local/lib/python3.14/site-packages" label="/home/ashish/.local/lib/python3.14/site-packages">
-        <attvalues>
-          <attvalue for="0" value="file_data" />
-        </attvalues>
-      </node>
-      <node id="/usr/local/lib/python3.14/dist-packages" label="/usr/local/lib/python3.14/dist-packages">
-        <attvalues>
-          <attvalue for="0" value="file_data" />
-        </attvalues>
-      </node>
-      <node id="ptyxis-agent (PID:4319)" label="ptyxis-agent (PID:4319)">
+      <node id="systemd-oomd (PID:637)" label="systemd-oomd (PID:637)">
         <attvalues>
           <attvalue for="0" value="process" />
         </attvalues>
       </node>
-      <node id="/proc/14671/cmdline" label="/proc/14671/cmdline">
+      <node id="/sys/fs/cgroup/user.slice/user-1000.slice/user@1000.service/mem" label="/sys/fs/cgroup/user.slice/user-1000.slice/user@1000.service/mem">
         <attvalues>
           <attvalue for="0" value="file_data" />
         </attvalues>
       </node>
-      <node id="ptyxis (PID:4310)" label="ptyxis (PID:4310)">
+      <node id="cpuUsage.sh (PID:13578)" label="cpuUsage.sh (PID:13578)">
         <attvalues>
           <attvalue for="0" value="process" />
         </attvalues>
       </node>
-      <node id="/etc/shells" label="/etc/shells">
+      <node id="/usr/bin/sed" label="/usr/bin/sed">
+        <attvalues>
+          <attvalue for="0" value="file_binary" />
+        </attvalues>
+      </node>
+      <node id="sed (PID:13578)" label="sed (PID:13578)">
+        <attvalues>
+          <attvalue for="0" value="process" />
+        </attvalues>
+      </node>
+      <node id="/usr/lib/x86_64-linux-gnu/libacl.so.1" label="/usr/lib/x86_64-linux-gnu/libacl.so.1">
+        <attvalues>
+          <attvalue for="0" value="file_data" />
+        </attvalues>
+      </node>
+      <node id="/usr/lib/x86_64-linux-gnu/libselinux.so.1" label="/usr/lib/x86_64-linux-gnu/libselinux.so.1">
+        <attvalues>
+          <attvalue for="0" value="file_data" />
+        </attvalues>
+      </node>
+      <node id="/usr/lib/x86_64-linux-gnu/libc.so.6" label="/usr/lib/x86_64-linux-gnu/libc.so.6">
+        <attvalues>
+          <attvalue for="0" value="file_data" />
+        </attvalues>
+      </node>
+      <node id="/usr/lib/x86_64-linux-gnu/libpcre2-8.so.0" label="/usr/lib/x86_64-linux-gnu/libpcre2-8.so.0">
+        <attvalues>
+          <attvalue for="0" value="file_data" />
+        </attvalues>
+      </node>
+      <node id="/proc/filesystems" label="/proc/filesystems">
+        <attvalues>
+          <attvalue for="0" value="file_data" />
+        </attvalues>
+      </node>
+      <node id="/usr/lib/locale/locale-archive" label="/usr/lib/locale/locale-archive">
+        <attvalues>
+          <attvalue for="0" value="file_data" />
+        </attvalues>
+      </node>
+      <node id="/usr/lib/x86_64-linux-gnu/gconv/gconv-modules.cache" label="/usr/lib/x86_64-linux-gnu/gconv/gconv-modules.cache">
+        <attvalues>
+          <attvalue for="0" value="file_data" />
+        </attvalues>
+      </node>
+      <node id="/proc/stat" label="/proc/stat">
+        <attvalues>
+          <attvalue for="0" value="file_data" />
+        </attvalues>
+      </node>
+      <node id="cpuUsage.sh (PID:13579)" label="cpuUsage.sh (PID:13579)">
+        <attvalues>
+          <attvalue for="0" value="process" />
+        </attvalues>
+      </node>
+      <node id="/usr/bin/cat" label="/usr/bin/cat">
+        <attvalues>
+          <attvalue for="0" value="file_binary" />
+        </attvalues>
+      </node>
+      <node id="cat (PID:13579)" label="cat (PID:13579)">
+        <attvalues>
+          <attvalue for="0" value="process" />
+        </attvalues>
+      </node>
+      <node id="/usr/lib/x86_64-linux-gnu/libgcc_s.so.1" label="/usr/lib/x86_64-linux-gnu/libgcc_s.so.1">
+        <attvalues>
+          <attvalue for="0" value="file_data" />
+        </attvalues>
+      </node>
+      <node id="/usr/lib/x86_64-linux-gnu/libm.so.6" label="/usr/lib/x86_64-linux-gnu/libm.so.6">
+        <attvalues>
+          <attvalue for="0" value="file_data" />
+        </attvalues>
+      </node>
+      <node id="/proc/self/maps" label="/proc/self/maps">
+        <attvalues>
+          <attvalue for="0" value="file_data" />
+        </attvalues>
+      </node>
+      <node id="/usr/share/coreutils/locales/uucore/en-US.ftl" label="/usr/share/coreutils/locales/uucore/en-US.ftl">
+        <attvalues>
+          <attvalue for="0" value="file_data" />
+        </attvalues>
+      </node>
+      <node id="/usr/share/coreutils/locales/cat/en-US.ftl" label="/usr/share/coreutils/locales/cat/en-US.ftl">
+        <attvalues>
+          <attvalue for="0" value="file_data" />
+        </attvalues>
+      </node>
+      <node id="/proc/7825/stat" label="/proc/7825/stat">
+        <attvalues>
+          <attvalue for="0" value="file_data" />
+        </attvalues>
+      </node>
+      <node id="cpuUsage.sh (PID:13581)" label="cpuUsage.sh (PID:13581)">
+        <attvalues>
+          <attvalue for="0" value="process" />
+        </attvalues>
+      </node>
+      <node id="cat (PID:13581)" label="cat (PID:13581)">
+        <attvalues>
+          <attvalue for="0" value="process" />
+        </attvalues>
+      </node>
+      <node id="/proc/13526/stat" label="/proc/13526/stat">
+        <attvalues>
+          <attvalue for="0" value="file_data" />
+        </attvalues>
+      </node>
+      <node id="cpuUsage.sh (PID:13583)" label="cpuUsage.sh (PID:13583)">
+        <attvalues>
+          <attvalue for="0" value="process" />
+        </attvalues>
+      </node>
+      <node id="cat (PID:13583)" label="cat (PID:13583)">
+        <attvalues>
+          <attvalue for="0" value="process" />
+        </attvalues>
+      </node>
+      <node id="/proc/13528/stat" label="/proc/13528/stat">
+        <attvalues>
+          <attvalue for="0" value="file_data" />
+        </attvalues>
+      </node>
+      <node id="cpuUsage.sh (PID:13585)" label="cpuUsage.sh (PID:13585)">
+        <attvalues>
+          <attvalue for="0" value="process" />
+        </attvalues>
+      </node>
+      <node id="cat (PID:13585)" label="cat (PID:13585)">
+        <attvalues>
+          <attvalue for="0" value="process" />
+        </attvalues>
+      </node>
+      <node id="/proc/13529/stat" label="/proc/13529/stat">
+        <attvalues>
+          <attvalue for="0" value="file_data" />
+        </attvalues>
+      </node>
+      <node id="code (PID:6378)" label="code (PID:6378)">
+        <attvalues>
+          <attvalue for="0" value="process" />
+        </attvalues>
+      </node>
+      <node id="/proc/7728/cmdline" label="/proc/7728/cmdline">
+        <attvalues>
+          <attvalue for="0" value="file_data" />
+        </attvalues>
+      </node>
+      <node id="/proc/9538/cmdline" label="/proc/9538/cmdline">
+        <attvalues>
+          <attvalue for="0" value="file_data" />
+        </attvalues>
+      </node>
+      <node id="/proc/7412/cmdline" label="/proc/7412/cmdline">
+        <attvalues>
+          <attvalue for="0" value="file_data" />
+        </attvalues>
+      </node>
+      <node id="/proc/13526/cmdline" label="/proc/13526/cmdline">
         <attvalues>
           <attvalue for="0" value="file_data" />
         </attvalues>
@@ -156,149 +291,429 @@
           <attvalue for="0" value="file_data" />
         </attvalues>
       </node>
-      <node id="systemd-oomd (PID:686)" label="systemd-oomd (PID:686)">
+      <node id="ThreadPoolForeg (PID:6201)" label="ThreadPoolForeg (PID:6201)">
         <attvalues>
           <attvalue for="0" value="process" />
         </attvalues>
       </node>
-      <node id="/sys/fs/cgroup/user.slice/user-1000.slice/user@1000.service/mem" label="/sys/fs/cgroup/user.slice/user-1000.slice/user@1000.service/mem">
-        <attvalues>
-          <attvalue for="0" value="file_data" />
-        </attvalues>
-      </node>
-      <node id="/proc/9743/cmdline" label="/proc/9743/cmdline">
+      <node id="/home/knox/.config/Code/.org.chromium.Chromium.avfDq2" label="/home/knox/.config/Code/.org.chromium.Chromium.avfDq2">
         <attvalues>
           <attvalue for="0" value="file_data" />
         </attvalues>
       </node>
     </nodes>
     <edges>
-      <edge source="polkitd (PID:1493)" target="/proc/self/fdinfo/10" id="0">
+      <edge source="python3 (PID:13575)" target="/usr/pyvenv.cfg" id="0">
         <attvalues>
           <attvalue for="1" value="OPENS" />
         </attvalues>
       </edge>
-      <edge source="polkitd (PID:1493)" target="/proc/3257/stat" id="1">
+      <edge source="python3 (PID:13575)" target="/usr/bin/pyvenv.cfg" id="1">
         <attvalues>
           <attvalue for="1" value="OPENS" />
         </attvalues>
       </edge>
-      <edge source="polkitd (PID:1493)" target="/proc/self/fdinfo/9" id="2">
+      <edge source="python3 (PID:13575)" target="/usr/bin/python3._pth" id="2">
         <attvalues>
           <attvalue for="1" value="OPENS" />
         </attvalues>
       </edge>
-      <edge source="polkitd (PID:1493)" target="/proc/3257/cgroup" id="3">
+      <edge source="python3 (PID:13575)" target="/usr/bin/python3.14._pth" id="3">
         <attvalues>
           <attvalue for="1" value="OPENS" />
         </attvalues>
       </edge>
-      <edge source="polkitd (PID:1493)" target="/proc/1/cgroup" id="4">
+      <edge source="python3 (PID:13575)" target="/usr/bin/pybuilddir.txt" id="4">
         <attvalues>
           <attvalue for="1" value="OPENS" />
         </attvalues>
       </edge>
-      <edge source="polkitd (PID:1493)" target="/etc/passwd" id="5">
+      <edge source="python3 (PID:13575)" target="/etc/localtime" id="5">
         <attvalues>
           <attvalue for="1" value="OPENS" />
         </attvalues>
       </edge>
-      <edge source="polkitd (PID:1493)" target="/etc/group" id="6">
+      <edge source="python3 (PID:13575)" target="/usr/lib/python3.14/*" id="6">
         <attvalues>
           <attvalue for="1" value="OPENS" />
         </attvalues>
       </edge>
-      <edge source="python3 (PID:14672)" target="/usr/lib/python3.14/*" id="7">
+      <edge source="python3 (PID:13575)" target="/usr/local/lib/python3.14/dist-packages" id="7">
         <attvalues>
           <attvalue for="1" value="OPENS" />
         </attvalues>
       </edge>
-      <edge source="python3 (PID:14672)" target=".../site-packages/*" id="8">
+      <edge source="python3 (PID:13575)" target="/home/knox/K-Guard/graphengine.py" id="8">
         <attvalues>
           <attvalue for="1" value="OPENS" />
         </attvalues>
       </edge>
-      <edge source="python3 (PID:14672)" target="/etc/ld.so.cache" id="9">
+      <edge source="python3 (PID:13575)" target="/home/knox/K-Guard" id="9">
         <attvalues>
           <attvalue for="1" value="OPENS" />
         </attvalues>
       </edge>
-      <edge source="python3 (PID:14672)" target="/usr/lib/x86_64-linux-gnu/libbz2.so.1.0" id="10">
+      <edge source="python3 (PID:13575)" target="/etc/ld.so.cache" id="10">
         <attvalues>
           <attvalue for="1" value="OPENS" />
         </attvalues>
       </edge>
-      <edge source="python3 (PID:14672)" target="/usr/lib/x86_64-linux-gnu/liblzma.so.5" id="11">
+      <edge source="python3 (PID:13575)" target="/usr/lib/x86_64-linux-gnu/libuuid.so.1" id="11">
         <attvalues>
           <attvalue for="1" value="OPENS" />
         </attvalues>
       </edge>
-      <edge source="python3 (PID:14672)" target="/usr/lib/x86_64-linux-gnu/libzstd.so.1" id="12">
+      <edge source="python3 (PID:13575)" target="/usr/lib/x86_64-linux-gnu/libbz2.so.1.0" id="12">
         <attvalues>
           <attvalue for="1" value="OPENS" />
         </attvalues>
       </edge>
-      <edge source="python3 (PID:14672)" target="/home/ashish/K-Guard" id="13">
+      <edge source="python3 (PID:13575)" target="/usr/lib/x86_64-linux-gnu/liblzma.so.5" id="13">
         <attvalues>
           <attvalue for="1" value="OPENS" />
         </attvalues>
       </edge>
-      <edge source="python3 (PID:14672)" target="/home/ashish/.local/lib/python3.14/site-packages" id="14">
+      <edge source="python3 (PID:13575)" target="/usr/lib/x86_64-linux-gnu/libzstd.so.1" id="14">
         <attvalues>
           <attvalue for="1" value="OPENS" />
         </attvalues>
       </edge>
-      <edge source="python3 (PID:14672)" target="/usr/local/lib/python3.14/dist-packages" id="15">
+      <edge source="python3 (PID:13575)" target="/usr/lib/x86_64-linux-gnu/libcrypto.so.3" id="15">
         <attvalues>
           <attvalue for="1" value="OPENS" />
         </attvalues>
       </edge>
-      <edge source="python3 (PID:14672)" target="/usr/lib/x86_64-linux-gnu/libcrypto.so.3" id="16">
+      <edge source="python3 (PID:13575)" target="/proc/sys/crypto/fips_enabled" id="16">
         <attvalues>
           <attvalue for="1" value="OPENS" />
         </attvalues>
       </edge>
-      <edge source="python3 (PID:14672)" target="/proc/sys/crypto/fips_enabled" id="17">
+      <edge source="python3 (PID:13575)" target="/etc/ubuntu-fips" id="17">
         <attvalues>
           <attvalue for="1" value="OPENS" />
         </attvalues>
       </edge>
-      <edge source="python3 (PID:14672)" target="/etc/ubuntu-fips" id="18">
+      <edge source="python3 (PID:13575)" target="/usr/lib/ssl/openssl.cnf" id="18">
         <attvalues>
           <attvalue for="1" value="OPENS" />
         </attvalues>
       </edge>
-      <edge source="python3 (PID:14672)" target="/usr/lib/ssl/openssl.cnf" id="19">
+      <edge source="systemd-oomd (PID:637)" target="/sys/fs/cgroup/user.slice/user-1000.slice/user@1000.service/mem" id="19">
         <attvalues>
           <attvalue for="1" value="OPENS" />
         </attvalues>
       </edge>
-      <edge source="systemd-logind (PID:1517)" target="/run/systemd/inhibit/220.ref" id="20">
+      <edge source="cpuUsage.sh (PID:13578)" target="/usr/bin/sed" id="20">
+        <attvalues>
+          <attvalue for="1" value="EXECUTES" />
+        </attvalues>
+      </edge>
+      <edge source="sed (PID:13578)" target="/etc/ld.so.cache" id="21">
         <attvalues>
           <attvalue for="1" value="OPENS" />
         </attvalues>
       </edge>
-      <edge source="systemd-logind (PID:1517)" target="/run/systemd/inhibit" id="21">
+      <edge source="sed (PID:13578)" target="/usr/lib/x86_64-linux-gnu/libacl.so.1" id="22">
         <attvalues>
           <attvalue for="1" value="OPENS" />
         </attvalues>
       </edge>
-      <edge source="ptyxis-agent (PID:4319)" target="/proc/14671/cmdline" id="22">
+      <edge source="sed (PID:13578)" target="/usr/lib/x86_64-linux-gnu/libselinux.so.1" id="23">
         <attvalues>
           <attvalue for="1" value="OPENS" />
         </attvalues>
       </edge>
-      <edge source="ptyxis-agent (PID:4319)" target="/proc/9743/cmdline" id="23">
+      <edge source="sed (PID:13578)" target="/usr/lib/x86_64-linux-gnu/libc.so.6" id="24">
         <attvalues>
           <attvalue for="1" value="OPENS" />
         </attvalues>
       </edge>
-      <edge source="ptyxis (PID:4310)" target="/etc/shells" id="24">
+      <edge source="sed (PID:13578)" target="/usr/lib/x86_64-linux-gnu/libpcre2-8.so.0" id="25">
         <attvalues>
           <attvalue for="1" value="OPENS" />
         </attvalues>
       </edge>
-      <edge source="systemd-oomd (PID:686)" target="/sys/fs/cgroup/user.slice/user-1000.slice/user@1000.service/mem" id="25">
+      <edge source="sed (PID:13578)" target="/proc/filesystems" id="26">
+        <attvalues>
+          <attvalue for="1" value="OPENS" />
+        </attvalues>
+      </edge>
+      <edge source="sed (PID:13578)" target="/usr/lib/locale/locale-archive" id="27">
+        <attvalues>
+          <attvalue for="1" value="OPENS" />
+        </attvalues>
+      </edge>
+      <edge source="sed (PID:13578)" target="/usr/lib/x86_64-linux-gnu/gconv/gconv-modules.cache" id="28">
+        <attvalues>
+          <attvalue for="1" value="OPENS" />
+        </attvalues>
+      </edge>
+      <edge source="sed (PID:13578)" target="/proc/stat" id="29">
+        <attvalues>
+          <attvalue for="1" value="OPENS" />
+        </attvalues>
+      </edge>
+      <edge source="cpuUsage.sh (PID:13579)" target="/usr/bin/cat" id="30">
+        <attvalues>
+          <attvalue for="1" value="EXECUTES" />
+        </attvalues>
+      </edge>
+      <edge source="cat (PID:13579)" target="/etc/ld.so.cache" id="31">
+        <attvalues>
+          <attvalue for="1" value="OPENS" />
+        </attvalues>
+      </edge>
+      <edge source="cat (PID:13579)" target="/usr/lib/x86_64-linux-gnu/libselinux.so.1" id="32">
+        <attvalues>
+          <attvalue for="1" value="OPENS" />
+        </attvalues>
+      </edge>
+      <edge source="cat (PID:13579)" target="/usr/lib/x86_64-linux-gnu/libgcc_s.so.1" id="33">
+        <attvalues>
+          <attvalue for="1" value="OPENS" />
+        </attvalues>
+      </edge>
+      <edge source="cat (PID:13579)" target="/usr/lib/x86_64-linux-gnu/libm.so.6" id="34">
+        <attvalues>
+          <attvalue for="1" value="OPENS" />
+        </attvalues>
+      </edge>
+      <edge source="cat (PID:13579)" target="/usr/lib/x86_64-linux-gnu/libc.so.6" id="35">
+        <attvalues>
+          <attvalue for="1" value="OPENS" />
+        </attvalues>
+      </edge>
+      <edge source="cat (PID:13579)" target="/usr/lib/x86_64-linux-gnu/libpcre2-8.so.0" id="36">
+        <attvalues>
+          <attvalue for="1" value="OPENS" />
+        </attvalues>
+      </edge>
+      <edge source="cat (PID:13579)" target="/proc/filesystems" id="37">
+        <attvalues>
+          <attvalue for="1" value="OPENS" />
+        </attvalues>
+      </edge>
+      <edge source="cat (PID:13579)" target="/proc/self/maps" id="38">
+        <attvalues>
+          <attvalue for="1" value="OPENS" />
+        </attvalues>
+      </edge>
+      <edge source="cat (PID:13579)" target="/usr/share/coreutils/locales/uucore/en-US.ftl" id="39">
+        <attvalues>
+          <attvalue for="1" value="OPENS" />
+        </attvalues>
+      </edge>
+      <edge source="cat (PID:13579)" target="/usr/share/coreutils/locales/cat/en-US.ftl" id="40">
+        <attvalues>
+          <attvalue for="1" value="OPENS" />
+        </attvalues>
+      </edge>
+      <edge source="cat (PID:13579)" target="/proc/7825/stat" id="41">
+        <attvalues>
+          <attvalue for="1" value="OPENS" />
+        </attvalues>
+      </edge>
+      <edge source="cpuUsage.sh (PID:13581)" target="/usr/bin/cat" id="42">
+        <attvalues>
+          <attvalue for="1" value="EXECUTES" />
+        </attvalues>
+      </edge>
+      <edge source="cat (PID:13581)" target="/etc/ld.so.cache" id="43">
+        <attvalues>
+          <attvalue for="1" value="OPENS" />
+        </attvalues>
+      </edge>
+      <edge source="cat (PID:13581)" target="/usr/lib/x86_64-linux-gnu/libselinux.so.1" id="44">
+        <attvalues>
+          <attvalue for="1" value="OPENS" />
+        </attvalues>
+      </edge>
+      <edge source="cat (PID:13581)" target="/usr/lib/x86_64-linux-gnu/libgcc_s.so.1" id="45">
+        <attvalues>
+          <attvalue for="1" value="OPENS" />
+        </attvalues>
+      </edge>
+      <edge source="cat (PID:13581)" target="/usr/lib/x86_64-linux-gnu/libm.so.6" id="46">
+        <attvalues>
+          <attvalue for="1" value="OPENS" />
+        </attvalues>
+      </edge>
+      <edge source="cat (PID:13581)" target="/usr/lib/x86_64-linux-gnu/libc.so.6" id="47">
+        <attvalues>
+          <attvalue for="1" value="OPENS" />
+        </attvalues>
+      </edge>
+      <edge source="cat (PID:13581)" target="/usr/lib/x86_64-linux-gnu/libpcre2-8.so.0" id="48">
+        <attvalues>
+          <attvalue for="1" value="OPENS" />
+        </attvalues>
+      </edge>
+      <edge source="cat (PID:13581)" target="/proc/filesystems" id="49">
+        <attvalues>
+          <attvalue for="1" value="OPENS" />
+        </attvalues>
+      </edge>
+      <edge source="cat (PID:13581)" target="/proc/self/maps" id="50">
+        <attvalues>
+          <attvalue for="1" value="OPENS" />
+        </attvalues>
+      </edge>
+      <edge source="cat (PID:13581)" target="/usr/share/coreutils/locales/uucore/en-US.ftl" id="51">
+        <attvalues>
+          <attvalue for="1" value="OPENS" />
+        </attvalues>
+      </edge>
+      <edge source="cat (PID:13581)" target="/usr/share/coreutils/locales/cat/en-US.ftl" id="52">
+        <attvalues>
+          <attvalue for="1" value="OPENS" />
+        </attvalues>
+      </edge>
+      <edge source="cat (PID:13581)" target="/proc/13526/stat" id="53">
+        <attvalues>
+          <attvalue for="1" value="OPENS" />
+        </attvalues>
+      </edge>
+      <edge source="cpuUsage.sh (PID:13583)" target="/usr/bin/cat" id="54">
+        <attvalues>
+          <attvalue for="1" value="EXECUTES" />
+        </attvalues>
+      </edge>
+      <edge source="cat (PID:13583)" target="/etc/ld.so.cache" id="55">
+        <attvalues>
+          <attvalue for="1" value="OPENS" />
+        </attvalues>
+      </edge>
+      <edge source="cat (PID:13583)" target="/usr/lib/x86_64-linux-gnu/libselinux.so.1" id="56">
+        <attvalues>
+          <attvalue for="1" value="OPENS" />
+        </attvalues>
+      </edge>
+      <edge source="cat (PID:13583)" target="/usr/lib/x86_64-linux-gnu/libgcc_s.so.1" id="57">
+        <attvalues>
+          <attvalue for="1" value="OPENS" />
+        </attvalues>
+      </edge>
+      <edge source="cat (PID:13583)" target="/usr/lib/x86_64-linux-gnu/libm.so.6" id="58">
+        <attvalues>
+          <attvalue for="1" value="OPENS" />
+        </attvalues>
+      </edge>
+      <edge source="cat (PID:13583)" target="/usr/lib/x86_64-linux-gnu/libc.so.6" id="59">
+        <attvalues>
+          <attvalue for="1" value="OPENS" />
+        </attvalues>
+      </edge>
+      <edge source="cat (PID:13583)" target="/usr/lib/x86_64-linux-gnu/libpcre2-8.so.0" id="60">
+        <attvalues>
+          <attvalue for="1" value="OPENS" />
+        </attvalues>
+      </edge>
+      <edge source="cat (PID:13583)" target="/proc/filesystems" id="61">
+        <attvalues>
+          <attvalue for="1" value="OPENS" />
+        </attvalues>
+      </edge>
+      <edge source="cat (PID:13583)" target="/proc/self/maps" id="62">
+        <attvalues>
+          <attvalue for="1" value="OPENS" />
+        </attvalues>
+      </edge>
+      <edge source="cat (PID:13583)" target="/usr/share/coreutils/locales/uucore/en-US.ftl" id="63">
+        <attvalues>
+          <attvalue for="1" value="OPENS" />
+        </attvalues>
+      </edge>
+      <edge source="cat (PID:13583)" target="/usr/share/coreutils/locales/cat/en-US.ftl" id="64">
+        <attvalues>
+          <attvalue for="1" value="OPENS" />
+        </attvalues>
+      </edge>
+      <edge source="cat (PID:13583)" target="/proc/13528/stat" id="65">
+        <attvalues>
+          <attvalue for="1" value="OPENS" />
+        </attvalues>
+      </edge>
+      <edge source="cpuUsage.sh (PID:13585)" target="/usr/bin/cat" id="66">
+        <attvalues>
+          <attvalue for="1" value="EXECUTES" />
+        </attvalues>
+      </edge>
+      <edge source="cat (PID:13585)" target="/etc/ld.so.cache" id="67">
+        <attvalues>
+          <attvalue for="1" value="OPENS" />
+        </attvalues>
+      </edge>
+      <edge source="cat (PID:13585)" target="/usr/lib/x86_64-linux-gnu/libselinux.so.1" id="68">
+        <attvalues>
+          <attvalue for="1" value="OPENS" />
+        </attvalues>
+      </edge>
+      <edge source="cat (PID:13585)" target="/usr/lib/x86_64-linux-gnu/libgcc_s.so.1" id="69">
+        <attvalues>
+          <attvalue for="1" value="OPENS" />
+        </attvalues>
+      </edge>
+      <edge source="cat (PID:13585)" target="/usr/lib/x86_64-linux-gnu/libm.so.6" id="70">
+        <attvalues>
+          <attvalue for="1" value="OPENS" />
+        </attvalues>
+      </edge>
+      <edge source="cat (PID:13585)" target="/usr/lib/x86_64-linux-gnu/libc.so.6" id="71">
+        <attvalues>
+          <attvalue for="1" value="OPENS" />
+        </attvalues>
+      </edge>
+      <edge source="cat (PID:13585)" target="/usr/lib/x86_64-linux-gnu/libpcre2-8.so.0" id="72">
+        <attvalues>
+          <attvalue for="1" value="OPENS" />
+        </attvalues>
+      </edge>
+      <edge source="cat (PID:13585)" target="/proc/filesystems" id="73">
+        <attvalues>
+          <attvalue for="1" value="OPENS" />
+        </attvalues>
+      </edge>
+      <edge source="cat (PID:13585)" target="/proc/self/maps" id="74">
+        <attvalues>
+          <attvalue for="1" value="OPENS" />
+        </attvalues>
+      </edge>
+      <edge source="cat (PID:13585)" target="/usr/share/coreutils/locales/uucore/en-US.ftl" id="75">
+        <attvalues>
+          <attvalue for="1" value="OPENS" />
+        </attvalues>
+      </edge>
+      <edge source="cat (PID:13585)" target="/usr/share/coreutils/locales/cat/en-US.ftl" id="76">
+        <attvalues>
+          <attvalue for="1" value="OPENS" />
+        </attvalues>
+      </edge>
+      <edge source="cat (PID:13585)" target="/proc/13529/stat" id="77">
+        <attvalues>
+          <attvalue for="1" value="OPENS" />
+        </attvalues>
+      </edge>
+      <edge source="code (PID:6378)" target="/proc/7728/cmdline" id="78">
+        <attvalues>
+          <attvalue for="1" value="OPENS" />
+        </attvalues>
+      </edge>
+      <edge source="code (PID:6378)" target="/proc/9538/cmdline" id="79">
+        <attvalues>
+          <attvalue for="1" value="OPENS" />
+        </attvalues>
+      </edge>
+      <edge source="code (PID:6378)" target="/proc/7412/cmdline" id="80">
+        <attvalues>
+          <attvalue for="1" value="OPENS" />
+        </attvalues>
+      </edge>
+      <edge source="code (PID:6378)" target="/proc/13526/cmdline" id="81">
+        <attvalues>
+          <attvalue for="1" value="OPENS" />
+        </attvalues>
+      </edge>
+      <edge source="ThreadPoolForeg (PID:6201)" target="/home/knox/.config/Code/.org.chromium.Chromium.avfDq2" id="82">
         <attvalues>
           <attvalue for="1" value="OPENS" />
         </attvalues>

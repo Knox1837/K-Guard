@@ -12,13 +12,18 @@ sudo apt install -y clang llvm libbpf-dev libelf-dev build-essential bpftool pyt
 pip3 install -r requirements.txt
 
 # Generate the kernel definition header
-bpftool btf dump file /sys/kernel/btf/vmlinux format c > vmlinux.h ```
+bpftool btf dump file /sys/kernel/btf/vmlinux format c > vmlinux.h
+```
 
 ## Compilation
-```make clean && make```
+```
+make clean && make
+```
 
 ## Execution
-```sudo ./monitor | python3 graphengine.py```
+```
+sudo ./monitor | python3 graphengine.py
+```
 
 ## Viewing the live Topology
 
@@ -26,6 +31,10 @@ The engine auto-saves updates to disk every 5seconds. Open the generated interac
 standalone webpage configuration directly inside browser.
 
 On Linux: 
-```xdg-open kguard_interactive_graph.html```
+```
+xdg-open kguard_interactive_graph.html
+```
 On macOS:
-```open kguard_interactive_graph.html```
+```
+open kguard_interactive_graph.html
+```

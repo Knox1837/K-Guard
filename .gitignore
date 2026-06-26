@@ -1,5 +1,14 @@
-*.gexf
+# Ignore generated kernel headers
+include/vmlinux.h
+
+# Ignore compiled object binaries and skeletons
 *.o
-*.png
+*.skel.h
+src/user/monitor
+
+# Ignore data and engine visualization outputs
+*.gexf
 *.html
+__pycache__/
 lib/
+venv/

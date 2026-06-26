@@ -4,11 +4,15 @@ An interactive kernel-space runtime monitoring and behavioral visualization pipe
 
 ## Prerequisites
 
+Install the required system build dependencies and generate the `vmlinux.h` header file from your running kernel:
+
 ```bash
 sudo apt update
-sudo apt install -y clang llvm libbpf-dev libelf-dev build-essential python3-pip
+sudo apt install -y clang llvm libbpf-dev libelf-dev build-essential bpftool python3-pip
 pip3 install -r requirements.txt
-```
+
+# Generate the kernel definition header
+bpftool btf dump file /sys/kernel/btf/vmlinux format c > vmlinux.h ```
 
 ## Compilation
 ```make clean && make```

@@ -1,3 +1,5 @@
 *.gexf
 *.o
 *.png
+*.html
+lib/

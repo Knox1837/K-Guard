@@ -1,6 +1,6 @@
 CLANG = clang
 GCC = gcc
-CFLAGS = -g -O2 -target bpf -I/usr/include/x86_64-linux-gnu
+CFLAGS = -g -O2 -D__TARGET_ARCH_x86 -target bpf -I/usr/include/x86_64-linux-gnu
 LDFLAGS = -lbpf -lelf -lz
 
 all: monitor

@@ -1,0 +1,308 @@
+<?xml version='1.0' encoding='utf-8'?>
+<gexf xmlns="http://www.gexf.net/1.2draft" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.gexf.net/1.2draft http://www.gexf.net/1.2draft/gexf.xsd" version="1.2">
+  <meta lastmodifieddate="2026-06-25">
+    <creator>NetworkX 3.6.1</creator>
+  </meta>
+  <graph defaultedgetype="directed" mode="static" name="">
+    <attributes mode="static" class="edge">
+      <attribute id="1" title="relation" type="string" />
+    </attributes>
+    <attributes mode="static" class="node">
+      <attribute id="0" title="type" type="string" />
+    </attributes>
+    <nodes>
+      <node id="polkitd (PID:1493)" label="polkitd (PID:1493)">
+        <attvalues>
+          <attvalue for="0" value="process" />
+        </attvalues>
+      </node>
+      <node id="/proc/self/fdinfo/10" label="/proc/self/fdinfo/10">
+        <attvalues>
+          <attvalue for="0" value="file_data" />
+        </attvalues>
+      </node>
+      <node id="/proc/3257/stat" label="/proc/3257/stat">
+        <attvalues>
+          <attvalue for="0" value="file_data" />
+        </attvalues>
+      </node>
+      <node id="/proc/self/fdinfo/9" label="/proc/self/fdinfo/9">
+        <attvalues>
+          <attvalue for="0" value="file_data" />
+        </attvalues>
+      </node>
+      <node id="/proc/3257/cgroup" label="/proc/3257/cgroup">
+        <attvalues>
+          <attvalue for="0" value="file_data" />
+        </attvalues>
+      </node>
+      <node id="/proc/1/cgroup" label="/proc/1/cgroup">
+        <attvalues>
+          <attvalue for="0" value="file_data" />
+        </attvalues>
+      </node>
+      <node id="/etc/passwd" label="/etc/passwd">
+        <attvalues>
+          <attvalue for="0" value="file_data" />
+        </attvalues>
+      </node>
+      <node id="/etc/group" label="/etc/group">
+        <attvalues>
+          <attvalue for="0" value="file_data" />
+        </attvalues>
+      </node>
+      <node id="python3 (PID:14672)" label="python3 (PID:14672)">
+        <attvalues>
+          <attvalue for="0" value="process" />
+        </attvalues>
+      </node>
+      <node id="/usr/lib/python3.14/*" label="/usr/lib/python3.14/*">
+        <attvalues>
+          <attvalue for="0" value="file_data" />
+        </attvalues>
+      </node>
+      <node id="systemd-logind (PID:1517)" label="systemd-logind (PID:1517)">
+        <attvalues>
+          <attvalue for="0" value="process" />
+        </attvalues>
+      </node>
+      <node id="/run/systemd/inhibit/220.ref" label="/run/systemd/inhibit/220.ref">
+        <attvalues>
+          <attvalue for="0" value="file_data" />
+        </attvalues>
+      </node>
+      <node id="/run/systemd/inhibit" label="/run/systemd/inhibit">
+        <attvalues>
+          <attvalue for="0" value="file_data" />
+        </attvalues>
+      </node>
+      <node id=".../site-packages/*" label=".../site-packages/*">
+        <attvalues>
+          <attvalue for="0" value="file_data" />
+        </attvalues>
+      </node>
+      <node id="/etc/ld.so.cache" label="/etc/ld.so.cache">
+        <attvalues>
+          <attvalue for="0" value="file_data" />
+        </attvalues>
+      </node>
+      <node id="/usr/lib/x86_64-linux-gnu/libbz2.so.1.0" label="/usr/lib/x86_64-linux-gnu/libbz2.so.1.0">
+        <attvalues>
+          <attvalue for="0" value="file_data" />
+        </attvalues>
+      </node>
+      <node id="/usr/lib/x86_64-linux-gnu/liblzma.so.5" label="/usr/lib/x86_64-linux-gnu/liblzma.so.5">
+        <attvalues>
+          <attvalue for="0" value="file_data" />
+        </attvalues>
+      </node>
+      <node id="/usr/lib/x86_64-linux-gnu/libzstd.so.1" label="/usr/lib/x86_64-linux-gnu/libzstd.so.1">
+        <attvalues>
+          <attvalue for="0" value="file_data" />
+        </attvalues>
+      </node>
+      <node id="/home/ashish/K-Guard" label="/home/ashish/K-Guard">
+        <attvalues>
+          <attvalue for="0" value="file_data" />
+        </attvalues>
+      </node>
+      <node id="/home/ashish/.local/lib/python3.14/site-packages" label="/home/ashish/.local/lib/python3.14/site-packages">
+        <attvalues>
+          <attvalue for="0" value="file_data" />
+        </attvalues>
+      </node>
+      <node id="/usr/local/lib/python3.14/dist-packages" label="/usr/local/lib/python3.14/dist-packages">
+        <attvalues>
+          <attvalue for="0" value="file_data" />
+        </attvalues>
+      </node>
+      <node id="ptyxis-agent (PID:4319)" label="ptyxis-agent (PID:4319)">
+        <attvalues>
+          <attvalue for="0" value="process" />
+        </attvalues>
+      </node>
+      <node id="/proc/14671/cmdline" label="/proc/14671/cmdline">
+        <attvalues>
+          <attvalue for="0" value="file_data" />
+        </attvalues>
+      </node>
+      <node id="ptyxis (PID:4310)" label="ptyxis (PID:4310)">
+        <attvalues>
+          <attvalue for="0" value="process" />
+        </attvalues>
+      </node>
+      <node id="/etc/shells" label="/etc/shells">
+        <attvalues>
+          <attvalue for="0" value="file_data" />
+        </attvalues>
+      </node>
+      <node id="/usr/lib/x86_64-linux-gnu/libcrypto.so.3" label="/usr/lib/x86_64-linux-gnu/libcrypto.so.3">
+        <attvalues>
+          <attvalue for="0" value="file_data" />
+        </attvalues>
+      </node>
+      <node id="/proc/sys/crypto/fips_enabled" label="/proc/sys/crypto/fips_enabled">
+        <attvalues>
+          <attvalue for="0" value="file_data" />
+        </attvalues>
+      </node>
+      <node id="/etc/ubuntu-fips" label="/etc/ubuntu-fips">
+        <attvalues>
+          <attvalue for="0" value="file_data" />
+        </attvalues>
+      </node>
+      <node id="/usr/lib/ssl/openssl.cnf" label="/usr/lib/ssl/openssl.cnf">
+        <attvalues>
+          <attvalue for="0" value="file_data" />
+        </attvalues>
+      </node>
+      <node id="systemd-oomd (PID:686)" label="systemd-oomd (PID:686)">
+        <attvalues>
+          <attvalue for="0" value="process" />
+        </attvalues>
+      </node>
+      <node id="/sys/fs/cgroup/user.slice/user-1000.slice/user@1000.service/mem" label="/sys/fs/cgroup/user.slice/user-1000.slice/user@1000.service/mem">
+        <attvalues>
+          <attvalue for="0" value="file_data" />
+        </attvalues>
+      </node>
+      <node id="/proc/9743/cmdline" label="/proc/9743/cmdline">
+        <attvalues>
+          <attvalue for="0" value="file_data" />
+        </attvalues>
+      </node>
+    </nodes>
+    <edges>
+      <edge source="polkitd (PID:1493)" target="/proc/self/fdinfo/10" id="0">
+        <attvalues>
+          <attvalue for="1" value="OPENS" />
+        </attvalues>
+      </edge>
+      <edge source="polkitd (PID:1493)" target="/proc/3257/stat" id="1">
+        <attvalues>
+          <attvalue for="1" value="OPENS" />
+        </attvalues>
+      </edge>
+      <edge source="polkitd (PID:1493)" target="/proc/self/fdinfo/9" id="2">
+        <attvalues>
+          <attvalue for="1" value="OPENS" />
+        </attvalues>
+      </edge>
+      <edge source="polkitd (PID:1493)" target="/proc/3257/cgroup" id="3">
+        <attvalues>
+          <attvalue for="1" value="OPENS" />
+        </attvalues>
+      </edge>
+      <edge source="polkitd (PID:1493)" target="/proc/1/cgroup" id="4">
+        <attvalues>
+          <attvalue for="1" value="OPENS" />
+        </attvalues>
+      </edge>
+      <edge source="polkitd (PID:1493)" target="/etc/passwd" id="5">
+        <attvalues>
+          <attvalue for="1" value="OPENS" />
+        </attvalues>
+      </edge>
+      <edge source="polkitd (PID:1493)" target="/etc/group" id="6">
+        <attvalues>
+          <attvalue for="1" value="OPENS" />
+        </attvalues>
+      </edge>
+      <edge source="python3 (PID:14672)" target="/usr/lib/python3.14/*" id="7">
+        <attvalues>
+          <attvalue for="1" value="OPENS" />
+        </attvalues>
+      </edge>
+      <edge source="python3 (PID:14672)" target=".../site-packages/*" id="8">
+        <attvalues>
+          <attvalue for="1" value="OPENS" />
+        </attvalues>
+      </edge>
+      <edge source="python3 (PID:14672)" target="/etc/ld.so.cache" id="9">
+        <attvalues>
+          <attvalue for="1" value="OPENS" />
+        </attvalues>
+      </edge>
+      <edge source="python3 (PID:14672)" target="/usr/lib/x86_64-linux-gnu/libbz2.so.1.0" id="10">
+        <attvalues>
+          <attvalue for="1" value="OPENS" />
+        </attvalues>
+      </edge>
+      <edge source="python3 (PID:14672)" target="/usr/lib/x86_64-linux-gnu/liblzma.so.5" id="11">
+        <attvalues>
+          <attvalue for="1" value="OPENS" />
+        </attvalues>
+      </edge>
+      <edge source="python3 (PID:14672)" target="/usr/lib/x86_64-linux-gnu/libzstd.so.1" id="12">
+        <attvalues>
+          <attvalue for="1" value="OPENS" />
+        </attvalues>
+      </edge>
+      <edge source="python3 (PID:14672)" target="/home/ashish/K-Guard" id="13">
+        <attvalues>
+          <attvalue for="1" value="OPENS" />
+        </attvalues>
+      </edge>
+      <edge source="python3 (PID:14672)" target="/home/ashish/.local/lib/python3.14/site-packages" id="14">
+        <attvalues>
+          <attvalue for="1" value="OPENS" />
+        </attvalues>
+      </edge>
+      <edge source="python3 (PID:14672)" target="/usr/local/lib/python3.14/dist-packages" id="15">
+        <attvalues>
+          <attvalue for="1" value="OPENS" />
+        </attvalues>
+      </edge>
+      <edge source="python3 (PID:14672)" target="/usr/lib/x86_64-linux-gnu/libcrypto.so.3" id="16">
+        <attvalues>
+          <attvalue for="1" value="OPENS" />
+        </attvalues>
+      </edge>
+      <edge source="python3 (PID:14672)" target="/proc/sys/crypto/fips_enabled" id="17">
+        <attvalues>
+          <attvalue for="1" value="OPENS" />
+        </attvalues>
+      </edge>
+      <edge source="python3 (PID:14672)" target="/etc/ubuntu-fips" id="18">
+        <attvalues>
+          <attvalue for="1" value="OPENS" />
+        </attvalues>
+      </edge>
+      <edge source="python3 (PID:14672)" target="/usr/lib/ssl/openssl.cnf" id="19">
+        <attvalues>
+          <attvalue for="1" value="OPENS" />
+        </attvalues>
+      </edge>
+      <edge source="systemd-logind (PID:1517)" target="/run/systemd/inhibit/220.ref" id="20">
+        <attvalues>
+          <attvalue for="1" value="OPENS" />
+        </attvalues>
+      </edge>
+      <edge source="systemd-logind (PID:1517)" target="/run/systemd/inhibit" id="21">
+        <attvalues>
+          <attvalue for="1" value="OPENS" />
+        </attvalues>
+      </edge>
+      <edge source="ptyxis-agent (PID:4319)" target="/proc/14671/cmdline" id="22">
+        <attvalues>
+          <attvalue for="1" value="OPENS" />
+        </attvalues>
+      </edge>
+      <edge source="ptyxis-agent (PID:4319)" target="/proc/9743/cmdline" id="23">
+        <attvalues>
+          <attvalue for="1" value="OPENS" />
+        </attvalues>
+      </edge>
+      <edge source="ptyxis (PID:4310)" target="/etc/shells" id="24">
+        <attvalues>
+          <attvalue for="1" value="OPENS" />
+        </attvalues>
+      </edge>
+      <edge source="systemd-oomd (PID:686)" target="/sys/fs/cgroup/user.slice/user-1000.slice/user@1000.service/mem" id="25">
+        <attvalues>
+          <attvalue for="1" value="OPENS" />
+        </attvalues>
+      </edge>
+    </edges>
+  </graph>
+</gexf>

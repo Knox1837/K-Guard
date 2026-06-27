@@ -12,7 +12,7 @@ sudo apt install -y clang llvm libbpf-dev libelf-dev build-essential bpftool pyt
 pip3 install -r requirements.txt
 
 # Generate the kernel definition header
-bpftool btf dump file /sys/kernel/btf/vmlinux format c > vmlinux.h
+bpftool btf dump file /sys/kernel/btf/vmlinux format c > include/vmlinux.h
 ```
 
 ## Compilation

@@ -1,5 +1,6 @@
 # Ignore generated kernel headers
-include/vmlinux.h
+vmlinux.h
+**/vmlinux.h
 
 # Ignore compiled object binaries and skeletons
 *.o
@@ -12,3 +13,4 @@ src/user/monitor
 __pycache__/
 lib/
 venv/
+

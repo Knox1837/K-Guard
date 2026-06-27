@@ -153,7 +153,8 @@ try:
             # Periodic Live Visual Refresh Layer (Every 5 seconds)
             if time.time() - last_render_time > 5.0:
                 export_interactive_graph(G)
-                print(f"[LIVE REFRESH] Graph updated: {G.number_of_nodes()} Nodes, {G.number_of_edges()} Edges mapped.")
+                nx.write_gexf(G, "system_behavior_graph.gexf")
+                print(f"[LIVE REFRESH] Graph updated: {G.number_of_nodes()} Nodes, {G.number_of_edges()} Edges mapped.", flush=True)
                 last_render_time = time.time()
 
         except json.JSONDecodeError:
@@ -161,5 +162,6 @@ try:
 
 except KeyboardInterrupt:
     print("\nShutting down pipeline. Rendering final graph topology...")
+    nx.write_gexf(G, "system_behavior_graph.gexf")
     export_interactive_graph(G)
     print("Completed. Open 'kguard_interactive_graph.html' in your browser to view your live runtime behavior!")

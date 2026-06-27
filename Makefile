@@ -1,7 +1,7 @@
 CLANG = clang
 GCC = gcc
 
-# Added -I. so files inside sub-directories like src/kernel/kguard.bpf.c can find vmlinux.h wherever it is generated
+# Added -I. so user-space monitor.c can find kguard.skel.h wherever it is generated
 CFLAGS = -g -O2 -D__TARGET_ARCH_x86 -target bpf -I./include -I. -I/usr/include/x86_64-linux-gnu
 LDFLAGS = -lbpf -lelf -lz
 

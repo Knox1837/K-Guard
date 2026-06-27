@@ -4,26 +4,29 @@ An interactive kernel-space runtime monitoring and behavioral visualization pipe
 
 ## Prerequisites
 
-Install the required system build dependencies and generate the `vmlinux.h` header file that will contain description of "YOUR" Kernel's structures and data types:
+Install the required system build dependencies and generate the `vmlinux.h` header file from your running kernel:
 
 ```bash
 sudo apt update
-sudo apt install -y clang llvm libbpf-dev libelf-dev build-essential bpftool python3-pip python3-pil python3-pil.imagetk
+sudo apt install -y clang llvm libbpf-dev libelf-dev build-essential bpftool python3-pip
 pip3 install -r requirements.txt
 
-# Generate the kernel's struct and data type definition header
-mkdir include && bpftool btf dump file /sys/kernel/btf/vmlinux format c > include/vmlinux.h
+# Generate the kernel definition header
+bpftool btf dump file /sys/kernel/btf/vmlinux format c > vmlinux.h
 ```
 
 ## Compilation
 ```
 make clean && make
 ```
-Executes the "clean" target in Makefile and rebuilds everything from Makefile
 
 ## Execution
 ```
 sudo ./monitor | python3 src/user/graphengine.py
+```
+or
+```
+sudo bash -c './monitor | python3 src/user/graphengine.py'
 ```
 
 ## Viewing the live Topology

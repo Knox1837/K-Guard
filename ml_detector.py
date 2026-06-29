@@ -1,7 +1,15 @@
+import sys
+import os
 import networkx as nx
 import numpy as np
 import math
 from sklearn.ensemble import IsolationForest
+
+# provenance.py lives in src/user/, add it to the path so this script can
+# be run from the project root (matches how monitor.c / graphengine.py
+# are already invoked).
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "src", "user"))
+from provenance import find_root_cause, format_chain
 
 def calculate_entropy(s):
     """Calculates Shannon Entropy to evaluate string randomness (Character Model)."""
@@ -59,10 +67,27 @@ clf.fit(X)
 
 predictions = clf.predict(X)
 
-print("\n--- UPGRADED K-GUARD ML CONTENT-AWARE THREAT REPORT ---")
+print("\nK-GUARD ML CONTENT-AWARE THREAT REPORT")
+mttrc_samples = []
 for i in range(len(node_list)):
     if predictions[i] == -1:
-        print(f"⚠️ [ANOMALY DETECTED] Process: {node_list[i]}")
-        print(f"   -> Max Path Length: {features[i][2]} chars | Max Randomness (Entropy): {features[i][3]:.2f}")
+        alert_node = node_list[i]
+        print(f"[ANOMALY DETECTED] Process: {alert_node}")
+        print(f"    -> Max Path Length: {features[i][2]} chars | Max Randomness (Entropy): {features[i][3]:.2f}")
         if features[i][4] == 1:
-            print("   -> 🚨 CRITICAL: This process explicitly touched a sensitive system target!")
+            print("   -> CRITICAL: This process explicitly touched a sensitive system target!")
+
+        # Root-Cause Attribution via reverse BFS on the CPG
+        root, chain, mttrc_ms = find_root_cause(G, alert_node)
+        mttrc_samples.append(mttrc_ms)
+
+        if root is not None and root != alert_node:
+            print(f"   -> ROOT CAUSE: {root}")
+            print(f"   -> CAUSAL CHAIN ({len(chain)} hops): {format_chain(chain)}")
+        else:
+            print("   -> ROOT CAUSE: no traceable parent — this process is the root")
+        print(f"   -> MTTRC: {mttrc_ms:.3f} ms")
+
+if mttrc_samples:
+    mean_mttrc = sum(mttrc_samples) / len(mttrc_samples)
+    print(f"\n--- Mean Time To Root Cause across {len(mttrc_samples)} alert(s): {mean_mttrc:.3f} ms ---")

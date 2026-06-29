@@ -19,6 +19,12 @@ struct dedup_key_t {
     unsigned int dev;
 };
 
+// FIX: wrapper struct so the BPF map value type macro has a clean named type
+// to hold the filename string stashed between sys_enter_openat and sys_exit_openat.
+struct fname_buf_t {
+    char name[256];
+};
+
 // Comprehensive event footprint data structure matching Section 3.2 and 3.3
 struct event_t {
     unsigned int pid;
@@ -48,6 +54,28 @@ struct {
     __type(key, struct dedup_key_t);
     __type(value, unsigned long long); 
 } edge_dedup_map SEC(".maps");
+
+struct {
+    __uint(type, BPF_MAP_TYPE_LRU_HASH);
+    __uint(max_entries, 10240);
+    __type(key, unsigned long long);     // pid_tgid
+    __type(value, struct fname_buf_t);
+} open_filename_map SEC(".maps");
+
+struct {
+    __uint(type, BPF_MAP_TYPE_PERCPU_ARRAY);
+    __uint(max_entries, 1);
+    __type(key, unsigned int);
+    __type(value, struct fname_buf_t);
+} fname_scratch SEC(".maps");
+
+// Immutable Kernel Tracking Map for CLC
+struct {
+    __uint(type, BPF_MAP_TYPE_HASH);
+    __uint(max_entries, 10240);
+    __type(key, unsigned int);         // Key: PID
+    __type(value, unsigned long long); // Value: Timestamp
+} active_kernel_pids SEC(".maps");
 
 // Inline helper to gather the base-level container and security context metrics
 static __always_inline void fill_common_context(struct event_t *e, unsigned int type) {
@@ -86,13 +114,48 @@ int handle_execve(struct trace_event_raw_sys_enter *ctx) {
     return 0;
 }
 
-// 2. FILE OPENING OPERATIONS WITH SECTION 3.3 DEDUPLICATION (Hooked at Exit)
+// 2a. FIX: CAPTURE FILENAME AT ENTRY — the user-space pathname pointer
+// (ctx->args[1] for openat(int dfd, const char *filename, int flags, mode_t mode))
+// is only safely readable at syscall entry. We stash it keyed by pid_tgid
+// so the exit hook can attach the real path to the emitted event.
+SEC("tracepoint/syscalls/sys_enter_openat")
+int handle_openat_enter(struct trace_event_raw_sys_enter *ctx) {
+    unsigned long long pid_tgid = bpf_get_current_pid_tgid();
+    const char *filename_ptr = (const char *)ctx->args[1];
+
+    // FIX: use the per-CPU scratch slot instead of a 256-byte stack local —
+    // see the fname_scratch map definition above for why.
+    unsigned int zero = 0;
+    struct fname_buf_t *buf = bpf_map_lookup_elem(&fname_scratch, &zero);
+    if (!buf) return 0;  // verifier requires this check; for a 1-entry array map it never actually fails
+
+    __builtin_memset(buf, 0, sizeof(*buf));
+    bpf_probe_read_user_str(&buf->name, sizeof(buf->name), filename_ptr);
+
+    bpf_map_update_elem(&open_filename_map, &pid_tgid, buf, BPF_ANY);
+    return 0;
+}
+
+// 2b. FILE OPENING OPERATIONS WITH SECTION 3.3 DEDUPLICATION (Hooked at Exit)
 SEC("tracepoint/syscalls/sys_exit_openat")
 int handle_openat_exit(struct trace_event_raw_sys_exit *ctx) {
+    unsigned long long pid_tgid = bpf_get_current_pid_tgid();
     long fd = ctx->ret;
+
+    unsigned int zero = 0;
+    struct fname_buf_t *fname_local = bpf_map_lookup_elem(&fname_scratch, &zero);
+    if (!fname_local) return 0;  // verifier requires this check; never actually fails for a 1-entry array map
+    __builtin_memset(fname_local, 0, sizeof(*fname_local));
+
+    struct fname_buf_t *stashed = bpf_map_lookup_elem(&open_filename_map, &pid_tgid);
+    if (stashed) {
+        __builtin_memcpy(fname_local, stashed, sizeof(*fname_local));
+    }
+    bpf_map_delete_elem(&open_filename_map, &pid_tgid);
+
     if (fd < 0) return 0; // Skip if open failed
 
-    unsigned int pid = bpf_get_current_pid_tgid() >> 32;
+    unsigned int pid = pid_tgid >> 32;
     struct task_struct *task = (struct task_struct *)bpf_get_current_task();
 
     // Verifier Fix: Explicit step-by-step kernel space pointer walks to avoid scalar errors
@@ -143,8 +206,7 @@ int handle_openat_exit(struct trace_event_raw_sys_exit *ctx) {
     fill_common_context(e, TYPE_OPEN);
     e->retval = fd;
 
-    // Provide a placeholder path or backtrace context info since we are at sys_exit
-    bpf_snprintf(e->filename, sizeof(e->filename), "FDSlot: %ld (De-duplicated File Edge)", &fd, sizeof(fd));
+    __builtin_memcpy(e->filename, fname_local->name, sizeof(e->filename));
 
     bpf_ringbuf_submit(e, 0);
     return 0;
@@ -153,13 +215,19 @@ int handle_openat_exit(struct trace_event_raw_sys_exit *ctx) {
 // 3. PROCESS FORK/CLONE
 SEC("tracepoint/sched/sched_process_fork")
 int handle_fork(struct trace_event_raw_sched_process_fork *ctx) {
+    unsigned int child_pid = ctx->child_pid;
+    unsigned long long ts = bpf_ktime_get_ns();
+
+    // Insert the newly created child PID into out CLC validation map
+    bpf_map_update_elem(&active_kernel_pids, &child_pid, &ts, BPF_ANY);
+    
     struct event_t *e = bpf_ringbuf_reserve(&rb, sizeof(*e), 0);
     if (!e) return 0;
 
     fill_common_context(e, TYPE_FORK);
     
     e->retval = ctx->child_pid; 
-    bpf_get_current_comm(&e->filename, sizeof(e->filename));
+    bpf_get_current_comm(&e->comm, sizeof(e->comm));
 
     bpf_ringbuf_submit(e, 0);
     return 0;
@@ -168,6 +236,11 @@ int handle_fork(struct trace_event_raw_sched_process_fork *ctx) {
 // 4. PROCESS TERMINATION
 SEC("tracepoint/sched/sched_process_exit")
 int handle_exit(struct trace_event_raw_sched_process_template *ctx) {
+    unsigned int pid = bpf_get_current_pid_tgid() >> 32;
+
+    // Delete the exiting PID from the CLC validation map
+    bpf_map_delete_elem(&active_kernel_pids, &pid);
+
     struct event_t *e = bpf_ringbuf_reserve(&rb, sizeof(*e), 0);
     if (!e) return 0;
 

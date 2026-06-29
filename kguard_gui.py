@@ -33,6 +33,7 @@ ML_DETECTOR  = KGUARD_DIR / "ml_detector.py"
 VIEW_GRAPH   = KGUARD_DIR / "view_graph.py"
 GEXF_FILE    = KGUARD_DIR / "system_behavior_graph.gexf"
 HTML_FILE    = KGUARD_DIR / "kguard_interactive_graph.html"
+CLC_DAEMON   = KGUARD_DIR / "src/user/clc_daemon.py"
 
 BG        = "#0d1117"
 PANEL     = "#161b22"
@@ -71,6 +72,10 @@ class KGuardGUI:
         self._edge_count   = tk.IntVar(value=0)
         self._alert_count  = tk.IntVar(value=0)
         self._status_text  = tk.StringVar(value="Idle")
+        
+        # CLC daemon
+        self._clc_proc = None
+        self._clc_running = False
 
         self._build_ui()
         self.root.protocol("WM_DELETE_WINDOW", self._on_close)
@@ -112,6 +117,11 @@ class KGuardGUI:
         self._section(left, "STAGE 2  —  ANALYZE")
         self._btn_ml = self._btn(left, "⚙  Run ML Detector", ACCENT, self._run_ml)
         self._btn_ml.pack(fill=tk.X, pady=(0, 12))
+        
+        # Stage 2.5
+        self._section(left, "STAGE 2.5 - INTEGRITY")
+        self._btn_clc = self._btn(left, "🛡  Start CLC Daemon", ACCENT, self._toggle_clc)
+        self._btn_clc.pack(fill=tk.X, pady=(0, 12))
 
         # Stage 3
         self._section(left, "STAGE 3  —  VISUALIZE")
@@ -162,6 +172,10 @@ class KGuardGUI:
 
         t4 = self._tab_frame(nb);  nb.add(t4, text="  Provenance Graph  ")
         self._build_graph_tab(t4)
+        
+        t_clc = self._tab_frame(nb);
+        nb.add(t_clc, text="   CLC Integrity  ")
+        self._clc_log = self._logw(t_clc)
 
         self._nb = nb
 
@@ -594,7 +608,32 @@ class KGuardGUI:
         else:
             self.root.destroy()
 
+    def _toggle_clc(self):
+        if not self._clc_running:
+            self._clc_running = True
+            self._btn_clc.configure(text="🛡  Stop CLC Daemon", fg=RED)
+            self._log(self._clc_log, "Launching CLC Integrity Daemon...", "info")
+            
+            self._clc_proc = subprocess.Popen(
+                [sys.executable, "-u", str(CLC_DAEMON)],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True, bufsize=1
+            )
+            threading.Thread(target=self._read_clc_stdout, daemon=True).start()
+        else:
+            self._clc_running = False
+            self._btn_clc.configure(text="🛡  Start CLC Daemon", fg=ACCENT)
+            if self._clc_proc:
+                self._clc_proc.terminate()
+            self._log(self._clc_log, "CLC Daemon stopped.", "warn")
 
+    def _read_clc_stdout(self):
+        for line in self._clc_proc.stdout:
+            if not self._clc_running: break
+            tag = "alert" if "CRITICAL" in line or "HIDDEN" in line else "info"
+            self._log_raw(self._clc_log, line.rstrip(), tag)
+        
 if __name__ == "__main__":
     try:
         from PIL import Image, ImageTk  

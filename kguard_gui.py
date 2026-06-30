@@ -575,8 +575,11 @@ class KGuardGUI:
             messagebox.showwarning("No graph file",
                 "Render the graph first (Stage 3).")
             return
+            
         user = os.environ.get("SUDO_USER", "root")
         uid = subprocess.check_output(["id", "-u", user]).decode().strip()
+        
+        # Environment setup for the user session
         env = {
             "DISPLAY": os.environ.get("DISPLAY", ":0"),
             "WAYLAND_DISPLAY": os.environ.get("WAYLAND_DISPLAY", "wayland-0"),
@@ -584,20 +587,16 @@ class KGuardGUI:
             "HOME": f"/home/{user}",
             "PATH": os.environ.get("PATH", "/usr/bin:/bin"),
         }
-        for browser in ("firefox", "chromium", "chromium-browser", "google-chrome", "xdg-open"):
-            try:
-                subprocess.Popen(
-                    ["sudo", "-u", user,
-                    f"DISPLAY={env['DISPLAY']}",
-                    f"WAYLAND_DISPLAY={env['WAYLAND_DISPLAY']}",
-                    f"XDG_RUNTIME_DIR={env['XDG_RUNTIME_DIR']}",
-                    f"HOME={env['HOME']}",
-                    browser, str(HTML_FILE)],
-                    stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
-                )
-                return
-            except FileNotFoundError:
-                continue
+        
+        try:
+            # Use xdg-open directly to launch the default browser
+            subprocess.Popen(
+                ["sudo", "-u", user, "xdg-open", str(HTML_FILE)],
+                env={**os.environ, **env},
+                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
+            )
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to open browser: {e}")
 
 
     def _on_close(self):

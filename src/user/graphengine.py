@@ -10,6 +10,30 @@ G = nx.DiGraph()
 # Noise Filter
 NOISE_FILTER = {"systemd", "systemd-journal", "dbus-daemon", "packagekitd"}
 
+# Sensitive directories and files that should always trigger graph nodes
+SENSITIVE_DIRECTORIES = {
+    "/etc/shadow",
+    "/etc/passwd",
+    "/etc/sudoers",
+    "/etc/sudoers.d/",
+    "/etc/modules",
+    "/etc/modprobe.d/",
+    "/etc/init.d/",
+    "/etc/systemd/system/",
+    "/etc/cron.d/",
+    "/etc/cron.daily/",
+    "/etc/cron.hourly/",
+    "/boot/",
+    "/lib/modules/",
+    "/usr/local/bin/",
+    "/usr/local/sbin/",
+    "/var/log/auth.log",
+    "/var/log/secure",
+    "/var/log/syslog",
+    "/var/log/audit/",
+    "/.ssh/" 
+}
+
 TYPE_EXEC = 1
 TYPE_FORK = 2
 TYPE_EXIT = 3
@@ -18,13 +42,7 @@ TYPE_TCP_CONNECT = 5
 
 last_render_time = time.time()
 
-# --- Section 3.4.4 Memory Management: TTL-based pruning ---------------------
-# Kernel timestamps (timestamp_ns from bpf_ktime_get_ns()) are nanoseconds
-# since boot, NOT wall-clock time — so we can't compare them against
-# Python's time.time(). Instead we track the latest event timestamp we've
-# seen and use THAT as our reference "now" for TTL purposes. Wall-clock
-# time.time() is only used to gate how often we bother running the prune
-# sweep at all, which is a totally separate concern.
+# Section 3.4.4 Memory Management: TTL-based pruning 
 TTL_NS = 30 * 60 * 1_000_000_000   # 30 minutes, matches Section 3.4.4 default
 PRUNE_INTERVAL_SEC = 60            # how often (real seconds) we run a prune pass
 
@@ -32,14 +50,10 @@ node_last_seen = {}      # node_id -> latest timestamp_ns that touched it
 latest_event_ts = 0      # the newest timestamp_ns observed from any event so far
 last_prune_time = time.time()
 
-
 def touch(node_id, ts):
     """Record that `node_id` was touched by an event at kernel time `ts`."""
     global latest_event_ts
-    # FIX: must check `is None`, not `not ts` — ts=0 is a legitimate kernel
-    # timestamp (nanoseconds since boot can genuinely be 0 in test data, or
-    # vanishingly close to it on a real system), and `not 0` is True in
-    # Python, which was silently dropping that event from tracking entirely.
+    
     if ts is None:
         return
     node_last_seen[node_id] = ts
@@ -216,14 +230,17 @@ try:
             elif type_id == TYPE_OPEN:
                 target = event.get("target", "unknown")
                 fd = event.get("assigned_fd")
+                
+                is_sensitive = any(target.startswith(d) for d in SENSITIVE_DIRECTORIES)
+                
+                if is_sensitive:
+                    if not G.has_node(process_node_id):
+                        G.add_node(process_node_id, type="process", comm=comm, pid=pid)
 
-                if not G.has_node(process_node_id):
-                    G.add_node(process_node_id, type="process", comm=comm, pid=pid)
-
-                G.add_node(target, type="file_data")
-                G.add_edge(process_node_id, target, relation="OPENS", fd=fd, timestamp=ts)
-                touch(process_node_id, ts)
-                touch(target, ts)
+                    G.add_node(target, type="file_data")
+                    G.add_edge(process_node_id, target, relation="OPENS", fd=fd, timestamp=ts)
+                    touch(process_node_id, ts)
+                    touch(target, ts)
 
             # 4. NETWORK HANDLING 
             elif type_id == TYPE_TCP_CONNECT:
@@ -242,7 +259,9 @@ try:
             # 5. EXIT HANDLING
             elif type_id == TYPE_EXIT:
                 if G.has_node(process_node_id):
+                    G.nodes[process_node_id]["status"] = "terminated"
                     G.nodes[process_node_id]["exit_code"] = event.get("exit_code")
+                    G.nodes[process_node_id]["exit_time"] = ts # Keep track of when it died
                 touch(process_node_id, ts)
 
             # Periodic Live Visual Refresh Layer (Every 5 seconds)

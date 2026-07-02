@@ -12,6 +12,7 @@ import json
 import webbrowser
 from pathlib import Path
 from datetime import datetime
+from src.user.graph import export_interactive_graph
 
 if "SUDO_USER" in os.environ:
     os.environ.setdefault("DISPLAY", ":0")
@@ -27,13 +28,16 @@ if os.geteuid() != 0:
         sys.exit(1)
 
 KGUARD_DIR   = Path(__file__).parent
+OUTPUT_DIR   = KGUARD_DIR / "output"
 MONITOR_BIN  = KGUARD_DIR / "monitor"
 GRAPH_ENGINE = KGUARD_DIR / "src/user/graphengine.py"
 ML_DETECTOR  = KGUARD_DIR / "ml_detector.py"
 VIEW_GRAPH   = KGUARD_DIR / "view_graph.py"
-GEXF_FILE    = KGUARD_DIR / "system_behavior_graph.gexf"
-HTML_FILE    = KGUARD_DIR / "kguard_interactive_graph.html"
+GEXF_FILE    = OUTPUT_DIR / "system_behavior_graph.gexf"
+HTML_FILE    = OUTPUT_DIR / "kguard_interactive_graph.html"
+FILTERED_HTML_FILE = OUTPUT_DIR / "subgraph_filtered.html"
 CLC_DAEMON   = KGUARD_DIR / "src/user/clc_daemon.py"
+OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
 BG        = "#0d1117"
 PANEL     = "#161b22"
@@ -130,7 +134,8 @@ class KGuardGUI:
         self._btn_browser = self._btn(left, "🌐  Open in Browser", TEXT_DIM,
                                       self._open_in_browser)
         self._btn_browser.pack(fill=tk.X, pady=(0, 20))
-
+        
+        self._build_controls(left)
         # Live stats
         self._section(left, "LIVE STATS")
         self._stat_row(left, "Events captured",  self._event_count)
@@ -293,7 +298,7 @@ class KGuardGUI:
         if GEXF_FILE.exists():
             mtime = datetime.fromtimestamp(GEXF_FILE.stat().st_mtime).strftime("%H:%M:%S")
             size_kb = GEXF_FILE.stat().st_size // 1024
-            return f"system_behavior_graph.gexf\n{size_kb} KB  (saved {mtime})"
+            return f"output/system_behavior_graph.gexf\n{size_kb} KB  (saved {mtime})"
         return "No graph file yet."
 
     def _refresh_gexf_label(self):
@@ -449,7 +454,7 @@ class KGuardGUI:
         self._btn_stop.configure(state=tk.DISABLED)
 
         self.root.after(1500, self._refresh_gexf_label)
-        self._log(self._event_log, "Monitor stopped. Graph saved to system_behavior_graph.gexf", "info")
+        self._log(self._event_log, "Monitor stopped. Graph saved to output/system_behavior_graph.gexf", "info")
         self._log(self._graph_log, "Run Stage 2 (ML Detector) or Stage 3 (Render Graph) next.", "info")
 
     # ML Detector 
@@ -560,7 +565,7 @@ class KGuardGUI:
         self._set_status("Idle", TEXT_DIM)
         mtime = datetime.fromtimestamp(HTML_FILE.stat().st_mtime).strftime("%H:%M:%S")
         self._graph_info.configure(
-            text=f"kguard_interactive_graph.html  —  saved {mtime}")
+            text=f"output/kguard_interactive_graph.html  —  saved {mtime}")
         self._draw_graph_placeholder(f"✓ Graph rendered — click 🌐 Open in Browser to view")
         self._open_in_browser()
         self._nb.select(3)
@@ -632,7 +637,27 @@ class KGuardGUI:
             if not self._clc_running: break
             tag = "alert" if "CRITICAL" in line or "HIDDEN" in line else "info"
             self._log_raw(self._clc_log, line.rstrip(), tag)
-        
+    
+    def _build_controls(self, parent):
+        section = tk.Frame(parent, bg=BG)
+        section.pack(fill=tk.X, pady=10)
+
+        tk.Label(section, text="Trace PID/Name:", bg=BG, fg="white").pack(anchor="w")
+        self.pid_entry = tk.Entry(section, bg=PANEL, fg="white", insertbackground="white")
+        self.pid_entry.pack(fill=tk.X, pady=2)
+
+        tk.Button(parent, text="Filter Graph", command=self._trace_pid).pack()
+
+    def _trace_pid(self):
+        pid = self.pid_entry.get()
+        # Trigger the engine to re-render with the filter
+        from networkx import read_gexf
+        graph = read_gexf(GEXF_FILE)
+        if pid.isdigit():
+            export_interactive_graph(graph, filter_pid=int(pid), html_path=FILTERED_HTML_FILE)
+        else:
+            export_interactive_graph(graph, filter_name=pid, html_path=FILTERED_HTML_FILE)
+
 if __name__ == "__main__":
     try:
         from PIL import Image, ImageTk  

@@ -4,8 +4,13 @@ import time
 import errno
 import json
 import subprocess
+from pathlib import Path
 import networkx as nx
 import psutil 
+
+BASE_DIR = Path(__file__).resolve().parents[2]
+OUTPUT_DIR = BASE_DIR / "output"
+OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
 def get_proc_pids():
     """Enumerates all active PIDs currently visible in the /proc filesystem."""
@@ -121,7 +126,7 @@ def run_cross_layer_consistency_check():
         return
 
     # Keep track of previously loaded graph to append alert attributes if it exists
-    gexf_path = "system_behavior_graph.gexf"
+    gexf_path = OUTPUT_DIR / "system_behavior_graph.gexf"
 
     while True:
         try:
@@ -151,7 +156,7 @@ def run_cross_layer_consistency_check():
                     print(f"   -> Verdict: Verified Kernel Rootkit/Evasive Malware Activity.\n")
                     
                     # 4. Inject this anomaly state straight into the shared provenance layout
-                    if os.path.exists(gexf_path):
+                    if gexf_path.exists():
                         try:
                             G = nx.read_gexf(gexf_path)
                             proc_node_id = f"proc_{pid}"

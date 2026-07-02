@@ -1,15 +1,20 @@
 
 import sys
 import json
+from pathlib import Path
 import networkx as nx
 import urllib.request
 
-GEXF_FILE = "system_behavior_graph.gexf"
-HTML_FILE  = "kguard_interactive_graph.html"
+BASE_DIR = Path(__file__).resolve().parent
+OUTPUT_DIR = BASE_DIR / "output"
+OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+
+GEXF_FILE = OUTPUT_DIR / "system_behavior_graph.gexf"
+HTML_FILE  = OUTPUT_DIR / "kguard_interactive_graph.html"
 
 print("Loading saved K-Guard system graph...")
 try:
-    G = nx.read_gexf(GEXF_FILE)
+  G = nx.read_gexf(GEXF_FILE)
 except FileNotFoundError:
     print(f"ERROR: '{GEXF_FILE}' not found.", file=sys.stderr)
     sys.exit(1)

@@ -1,5 +1,6 @@
 import sys
 import os
+from pathlib import Path
 import networkx as nx
 import numpy as np
 import math
@@ -10,6 +11,10 @@ from sklearn.ensemble import IsolationForest
 # are already invoked).
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "src", "user"))
 from provenance import find_root_cause, format_chain
+
+BASE_DIR = Path(__file__).resolve().parent
+OUTPUT_DIR = BASE_DIR / "output"
+GEXF_FILE = OUTPUT_DIR / "system_behavior_graph.gexf"
 
 def calculate_entropy(s):
     """Calculates Shannon Entropy to evaluate string randomness (Character Model)."""
@@ -22,7 +27,7 @@ def calculate_entropy(s):
     return entropy
 
 print("Loading saved behavioral structure graph...")
-G = nx.read_gexf("system_behavior_graph.gexf")
+G = nx.read_gexf(GEXF_FILE)
 
 features = []
 node_list = []

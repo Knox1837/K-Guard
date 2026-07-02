@@ -31,14 +31,14 @@ sudo bash -c './monitor | python3 src/user/graphengine.py'
 
 ## Viewing the live Topology
 
-The engine auto-saves updates to disk every 5seconds. Open the generated interactive
-standalone webpage configuration directly inside browser.
+The engine auto-saves updates to disk every 5 seconds under `output/`. Open the generated interactive
+standalone webpage from that directory.
 
 On Linux: 
 ```
-xdg-open kguard_interactive_graph.html
+xdg-open output/kguard_interactive_graph.html
 ```
 On macOS:
 ```
-open kguard_interactive_graph.html
+open output/kguard_interactive_graph.html
 ```

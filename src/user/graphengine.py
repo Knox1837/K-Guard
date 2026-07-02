@@ -1,8 +1,16 @@
 import sys
 import json
 import time
+from pathlib import Path
+
 import networkx as nx
 from pyvis.network import Network
+from graph import NODE_COUNT_HISTORY_FILE, export_interactive_graph
+
+BASE_DIR = Path(__file__).resolve().parents[2]
+OUTPUT_DIR = BASE_DIR / "output"
+OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+GEXF_FILE = OUTPUT_DIR / "system_behavior_graph.gexf"
 
 # Initialize Directed Causal Provenance Graph
 G = nx.DiGraph()
@@ -41,6 +49,7 @@ TYPE_OPEN = 4
 TYPE_TCP_CONNECT = 5
 
 last_render_time = time.time()
+node_count_history = []
 
 # Section 3.4.4 Memory Management: TTL-based pruning 
 TTL_NS = 30 * 60 * 1_000_000_000   # 30 minutes, matches Section 3.4.4 default
@@ -74,115 +83,6 @@ def prune_graph():
         del node_last_seen[n]
     if stale:
         print(f"[PRUNE] Removed {len(stale)} node(s) older than the {TTL_NS // 60_000_000_000}-minute TTL", flush=True)
-
-
-def export_interactive_graph(graph_obj):
-    """Transforms our composite NetworkX graph into an interactive browser deployment."""
-    # Create a PyVis network object with dark mode and smooth physics
-    net = Network(height="800px", width="100%", bgcolor="#222222", font_color="white", directed=True)
-    # Instead of default 1000, set to 150
-    net.set_options("""
-    var options = {
-      "physics": {
-        "solver": "barnesHut",
-        "barnesHut": {
-          "gravitationalConstant": -2000,
-          "centralGravity": 0.3,
-          "springLength": 95,
-          "springConstant": 0.04,
-          "damping": 0.85
-        },
-        "stabilization": {
-          "enabled": true,
-          "iterations": 150,
-          "fit": true
-        }
-      }
-    }
-    """)
-
-    for node, attrs in graph_obj.nodes(data=True):
-        node_type = attrs.get("type", "unknown")
-        
-        # Format Node Visual Style and Labels based on Section 3.4 Criteria
-        if node_type == "process":
-            label = f"{attrs.get('comm')} (PID:{attrs.get('pid')})"
-            title = f"Process: {attrs.get('comm')}\nPID: {attrs.get('pid')}\nUID: {attrs.get('uid')}\nGID: {attrs.get('gid')}\nStart Vector: {node[1]}"
-            color = "#ff7675" # Pastel Red for Active Processes
-            shape = "dot"
-            size = 25
-        elif node_type == "file_binary":
-            label = node.split("/")[-1] if "/" in str(node) else str(node)
-            title = f"Binary Target:\n{node}"
-            color = "#74b9ff" # Light Blue for Executable Files
-            shape = "diamond"
-            size = 20
-        elif node_type == "file_data":
-            label = node.split("/")[-1] if "/" in str(node) else str(node)
-            title = f"Data File Access:\n{node}"
-            color = "#55efc4" # Pastel Green for Reads/Writes
-            shape = "square"
-            size = 15
-        elif node_type == "network_socket":
-            label = str(node)
-            title = f"Outbound Network Destination:\nIP: {attrs.get('ip')}\nPort: {attrs.get('port')}"
-            color = "#a29bfe" # Purple for Sockets
-            shape = "triangle"
-            size = 20
-        else:
-            label = str(node)
-            title = "Unknown Node Context"
-            color = "#dfe6e9"
-            shape = "dot"
-            size = 10
-
-        # Relabel our complex tuple key (pid, start_time) to a safe string index
-        safe_node_id = f"proc_{node[0]}_{node[1]}" if isinstance(node, tuple) else str(node)
-        net.add_node(safe_node_id, label=label, title=title, color=color, shape=shape, size=size)
-
-    # Translate Edges into the PyVis interface
-    for source, target, edge_attrs in graph_obj.edges(data=True):
-        safe_source = f"proc_{source[0]}_{source[1]}" if isinstance(source, tuple) else str(source)
-        safe_target = f"proc_{target[0]}_{target[1]}" if isinstance(target, tuple) else str(target)
-        
-        relation = edge_attrs.get("relation", "")
-        extra_info = f"\nFD: {edge_attrs.get('fd')}" if "fd" in edge_attrs else ""
-        
-        net.add_edge(
-            safe_source, 
-            safe_target, 
-            label=relation, 
-            title=f"Action: {relation}{extra_info}\nTime: {edge_attrs.get('timestamp')}",
-            color="#ffeaa7" # Warm yellow tracking paths
-        )
-
-    # Save out as an interactive standalone web application webpage layout
-    net.save_graph("kguard_interactive_graph.html")
-    freeze_physics_after_stabilization("kguard_interactive_graph.html")
-
-
-def freeze_physics_after_stabilization(html_path):
-    """Patch the saved HTML so physics stops once the layout settles."""
-    try:
-        with open(html_path, "r", encoding="utf-8") as f:
-            html = f.read()
-
-        freeze_script = """
-<script type="text/javascript">
-  if (typeof network !== "undefined") {
-    network.once("stabilizationIterationsDone", function () {
-        network.setOptions({ physics: false });
-    });
-  }
-</script>
-"""
-        if "</body>" in html:
-            html = html.replace("</body>", freeze_script + "</body>")
-            with open(html_path, "w", encoding="utf-8") as f:
-                f.write(html)
-    except (FileNotFoundError, OSError) as e:
-        print(f"[WARN] Could not patch physics-freeze script into {html_path}: {e}", flush=True)
-
 
 print("Python Live Interactive Graph Engine Active. Monitoring system...", flush=True)
 
@@ -266,8 +166,16 @@ try:
 
             # Periodic Live Visual Refresh Layer (Every 5 seconds)
             if time.time() - last_render_time > 5.0:
-                export_interactive_graph(G)
-                nx.write_gexf(G, "system_behavior_graph.gexf")
+                history_point = {
+                    "label": time.strftime("%H:%M:%S", time.localtime()),
+                    "count": G.number_of_nodes(),
+                }
+                node_count_history.append(history_point)
+                with open(NODE_COUNT_HISTORY_FILE, "w", encoding="utf-8") as history_file:
+                    json.dump(node_count_history, history_file)
+
+                export_interactive_graph(G, node_count_history=node_count_history)
+                nx.write_gexf(G, str(GEXF_FILE))
                 print(f"[LIVE REFRESH] Graph updated: {G.number_of_nodes()} Nodes, {G.number_of_edges()} Edges mapped.", flush=True)
                 last_render_time = time.time()
 
@@ -282,6 +190,6 @@ try:
 
 except KeyboardInterrupt:
     print("\nShutting down pipeline. Rendering final graph topology...")
-    nx.write_gexf(G, "system_behavior_graph.gexf")
-    export_interactive_graph(G)
-    print("Completed. Open 'kguard_interactive_graph.html' in your browser to view your live runtime behavior!")
+    nx.write_gexf(G, str(GEXF_FILE))
+    export_interactive_graph(G, node_count_history=node_count_history)
+    print(f"Completed. Open '{OUTPUT_DIR / 'kguard_interactive_graph.html'}' in your browser to view your live runtime behavior!")

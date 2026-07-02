@@ -5,7 +5,7 @@ vmlinux.h
 # Ignore compiled object binaries and skeletons
 *.o
 *.skel.h
-src/user/monitor
+monitor
 
 # Ignore data and engine visualization outputs
 *.gexf
@@ -13,4 +13,7 @@ src/user/monitor
 __pycache__/
 lib/
 venv/
+.venv/
+.vscode/
+logs/
 output/

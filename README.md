@@ -10,7 +10,6 @@ Install the required system build dependencies and generate the `vmlinux.h` head
 sudo apt update
 sudo apt install -y clang llvm libbpf-dev libelf-dev build-essential bpftool python3-pip
 pip3 install -r requirements.txt
-mkdir logs && mkdir include
 
 # Generate the kernel definition header
 bpftool btf dump file /sys/kernel/btf/vmlinux format c > include/vmlinux.h
@@ -24,10 +23,6 @@ make clean && make
 ## Execution
 ```
 sudo ./monitor | python3 src/user/graphengine.py
-```
-or
-```
-sudo bash -c './monitor | python3 src/user/graphengine.py'
 ```
 
 ## Viewing the live Topology

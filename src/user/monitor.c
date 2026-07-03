@@ -5,6 +5,7 @@
 #include <string.h>
 #include <math.h>          
 #include <unistd.h>
+#include <fcntl.h>
 #include <sys/resource.h>
 #include <arpa/inet.h>
 #include <time.h>
@@ -15,6 +16,7 @@
 #define TYPE_EXIT         3
 #define TYPE_OPEN         4
 #define TYPE_TCP_CONNECT  5
+#define TYPE_TCP_CLOSE    6
 #define PID_HASH_SIZE 1024
 
 // Per-process degree/feature tracking Keyed by (pid, start_time_ns) together, NOT pid alone. PIDs can be reused by the kernel, and start_time_ns is a unique identifier 
@@ -96,6 +98,30 @@ static int is_sensitive_str(const char *s) {
     return 0;
 }
 
+// Is dest_ip inside a private/RFC1918 range (10/8, 172.16/12, 192.168/16, 127/8 loopback)?
+static int is_private_ip(unsigned int addr_be) {
+    unsigned int h = ntohl(addr_be); // convert to host order
+    unsigned char b0 = (h >> 24) & 0xFF;
+    unsigned char b1 = (h >> 16) & 0xFF;
+    if (b0 == 10) return 1;                        // 10.0.0.0/8
+    if (b0 == 172 && b1 >= 16 && b1 <= 31) return 1; // 172.16.0.0/12
+    if (b0 == 192 && b1 == 168) return 1;            // 192.168.0.0/16
+    if (b0 == 127) return 1;                         // 127.0.0.0/8 loopback
+    return 0;
+}
+
+// Is dest_port a common well-known port (HTTP, HTTPS, SSH, DNS, FTP, SMTP, NTP, IMAP, POP3, etc.)? 
+// Used to flag connections that are more likely to be benign.
+static int is_common_port(unsigned short port) {
+    switch (port) {
+        case 80: case 443: case 22: case 53: case 21:
+        case 25: case 123: case 993: case 995: case 587:
+            return 1;
+        default:
+            return 0;
+    }
+}
+
 static void update_node_features(struct pid_degree_t *n, const char *target_str) { 
     if (!n || !target_str) return;
 
@@ -123,25 +149,53 @@ struct event_t {
     char filename[256];
     unsigned int dest_ip;
     unsigned short dest_port;
+
+    unsigned int src_ip;
+    unsigned short src_port;
+    unsigned char protocol;
+    unsigned long long bytes_sent;
+    unsigned long long bytes_recv;
+    unsigned long long duration_ns;
 };
 
 FILE *jsonl_file = NULL;
 
 void generate_session_id(char *buf) {
-    srand(time(NULL));
-    sprintf(buf, "%04x%04x-%04x-%04x-%04x-%04x%04x%04x",
-            rand() % 0xffff, rand() % 0xffff, rand() % 0xffff,
-            (rand() % 0x0fff) | 0x4000, (rand() % 0x3fff) | 0x8000,
-            rand() % 0xffff, rand() % 0xffff, rand() % 0xffff);
+    int fd = open("/dev/urandom", O_RDONLY);
+    if (fd < 0) {
+        sprintf(buf, "fallback-id-%d", getpid());
+        return;
+    }
+
+    unsigned char random_data[16];
+    // Check the return value of read()
+    ssize_t bytes_read = read(fd, random_data, 16);
+    close(fd);
+
+    if (bytes_read != 16) {
+        // If we didn't get 16 bytes, fallback to something safe
+        sprintf(buf, "error-id-%d", getpid());
+        return;
+    }
+
+    for (int i = 0; i < 16; i++) {
+        sprintf(buf + (i * 2), "%02x", random_data[i]);
+    }
+    buf[32] = '\0';
 }
 
 static int handle_event(void *ctx, void *data, size_t sz) {
     struct event_t *e = data;
-    char ip_str[INET_ADDRSTRLEN] = "0.0.0.0";
+    char ip_str[INET_ADDRSTRLEN] = "0.0.0.0";      // dest IP, human-readable
+    char src_ip_str[INET_ADDRSTRLEN] = "0.0.0.0";  // FIX: source IP, only meaningful for TYPE_TCP_CLOSE
 
-    if (e->event_type == TYPE_TCP_CONNECT) {
+    if (e->event_type == TYPE_TCP_CONNECT || e->event_type == TYPE_TCP_CLOSE) {
         struct in_addr addr = { .s_addr = e->dest_ip };
         inet_ntop(AF_INET, &addr, ip_str, sizeof(ip_str));
+    }
+    if (e->event_type == TYPE_TCP_CLOSE) {
+        struct in_addr src_addr = { .s_addr = e->src_ip };
+        inet_ntop(AF_INET, &src_addr, src_ip_str, sizeof(src_ip_str));
     }
 
     struct pid_degree_t *proc_stats = get_or_create_pid_entry(e->pid, e->start_time_ns);
@@ -174,6 +228,10 @@ static int handle_event(void *ctx, void *data, size_t sz) {
             break;
         }
         case TYPE_EXIT:
+            break;
+        case TYPE_TCP_CLOSE:
+            // intentionally no degree update as TYPE_TCP_CONNECT already
+            // counted this edge when the connection opened. TCP_CLOSE just caries the metadata
             break;
         case TYPE_TCP_CONNECT:
             if (proc_stats) {
@@ -218,6 +276,12 @@ static int handle_event(void *ctx, void *data, size_t sz) {
             printf("\"event\": \"NET_CONNECT\", \"pid\": %u, \"comm\": \"%s\", \"dest_ip\": \"%s\", \"dest_port\": %u}\n",
                    e->pid, e->comm, ip_str, e->dest_port);
             break;
+        case TYPE_TCP_CLOSE:
+            printf("\"event\": \"NET_CLOSE\", \"pid\": %u, \"comm\": \"%s\", \"src\": \"%s:%u\", \"dest\": \"%s:%u\", "
+                   "\"bytes_sent\": %llu, \"bytes_recv\": %llu, \"duration_ms\": %.3f}\n",
+                   e->pid, e->comm, src_ip_str, e->src_port, ip_str, e->dest_port,
+                   e->bytes_sent, e->bytes_recv, e->duration_ns / 1e6);
+            break;
         default:
             printf("\"event\": \"UNKNOWN\"}\n");
             break;
@@ -236,6 +300,7 @@ static int handle_event(void *ctx, void *data, size_t sz) {
         case TYPE_EXIT:        event_str = "EXIT";        break;
         case TYPE_OPEN:        event_str = "OPEN";        break;
         case TYPE_TCP_CONNECT: event_str = "NET_CONNECT"; break;
+        case TYPE_TCP_CLOSE:   event_str = "NET_CLOSE";   break;
     }
 
     const char *status = "RUNNING"; // Default baseline
@@ -244,16 +309,46 @@ static int handle_event(void *ctx, void *data, size_t sz) {
         case TYPE_FORK:        status = "FORKED";   break;
         case TYPE_EXIT:        status = "EXITED";   break;
         case TYPE_TCP_CONNECT: status = "NETWORK";  break;
+        case TYPE_TCP_CLOSE:   status = "NET_CLOSED"; break;
     }
 
+
+    unsigned long long total_bytes = e->bytes_sent + e->bytes_recv;
+    double duration_ms = e->duration_ns / 1e6;
+    double duration_s  = e->duration_ns / 1e9;
+
+    // Ratio of bytes sent to bytes received. 
+   double send_recv_ratio = (e->bytes_recv > 0)
+        ? (double)e->bytes_sent / (double)e->bytes_recv
+        : (e->bytes_sent > 0 ? 999.0 : 0.0);
+    int dest_is_private = is_private_ip(e->dest_ip);
+    int dest_is_common_port = is_common_port(e->dest_port);
 
     const char *label = "BENIGN"; // Default assumption
 
     if (contains_sensitive && max_entropy > 5.0) { //assumption of higher risk criterion
         label = "SUSPECT_OBFUSCATION";
-    } 
+    }
     else if (strcmp(e->comm, "nc") == 0 || strcmp(e->comm, "ncat") == 0) {//common netcat binaries
         label = "RISK_REVERSE_SHELL";
+    }
+    else if (e->event_type == TYPE_TCP_CLOSE) {
+        int shell_like_comm =
+            strcmp(e->comm, "sh") == 0   || strcmp(e->comm, "bash") == 0 ||
+            strcmp(e->comm, "dash") == 0 || strcmp(e->comm, "zsh") == 0 ||
+            strcmp(e->comm, "socat") == 0;
+
+        if (shell_like_comm && !dest_is_common_port) {
+            // A shell binary itself holding a live socket to a non-standard
+            // port is the single strongest reverse-shell signal there is
+            label = "RISK_REVERSE_SHELL";
+        }
+        else if (!dest_is_common_port && !dest_is_private && duration_s > 30.0 && total_bytes > 0) {
+            // Long-lived connection out to a public IP on an unusual port:
+            // classic C2 beacon / lingering shell shape, even if the comm
+            // name looks innocuous (attackers rarely leave it named "nc").
+            label = "SUSPECT_C2_BEACON";
+        }
     }
     // print in the CSV structure
     // session_id, ts_ns, wall_time, node_id, pid, uid, gid, comm, event, out_degree, in_degree, connections, max_len, max_entropy, contains_sensitive, status, label
@@ -274,7 +369,31 @@ static int handle_event(void *ctx, void *data, size_t sz) {
     //        status,
     //        label);
 
-    if (jsonl_file) {
+    if (jsonl_file && e->event_type == TYPE_TCP_CLOSE) {
+        // Every field here is candidate feature column for ML model training.
+        fprintf(jsonl_file,
+            "{\"timestamp_ns\": %llu, \"wall_time\": %.6f, \"node_id\": \"proc_%u_%llu\", "
+            "\"event\": \"%s\", \"pid\": %u, \"ppid\": %u, \"uid\": %u, \"gid\": %u, \"comm\": \"%s\", "
+            "\"protocol\": %u, \"src_ip\": \"%s\", \"src_port\": %u, \"dest_ip\": \"%s\", \"dest_port\": %u, "
+            "\"dest_is_private\": %d, \"dest_is_common_port\": %d, "
+            "\"bytes_sent\": %llu, \"bytes_recv\": %llu, \"total_bytes\": %llu, \"send_recv_ratio\": %.4f, "
+            "\"duration_ms\": %.3f, "
+            "\"out_degree\": %d, \"in_degree\": %d, \"connections\": %d, "
+            "\"max_len\": %.2f, \"max_entropy\": %.2f, \"contains_sensitive\": %d, "
+            "\"status\": \"%s\", \"label\": \"%s\"}\n",
+            e->timestamp_ns, wall_time, e->pid, e->start_time_ns,
+            event_str, e->pid, e->ppid, e->uid, e->gid, e->comm,
+            e->protocol, src_ip_str, e->src_port, ip_str, e->dest_port,
+            dest_is_private, dest_is_common_port,
+            e->bytes_sent, e->bytes_recv, total_bytes, send_recv_ratio,
+            duration_ms,
+            out_degree, in_degree, connections,
+            max_len, max_entropy, contains_sensitive,
+            status, label
+        );
+        fflush(jsonl_file);
+    }
+    else if (jsonl_file) {
         fprintf(jsonl_file, "{\"timestamp_ns\": %llu, \"wall_time\": %.6f, \"node_id\": \"proc_%u_%llu\", \"pid\": %u, \"uid\": %u, \"gid\": %u, \"comm\": \"%s\", \"event\": \"%s\", \"out_degree\": %d, \"in_degree\": %d, \"connections\": %d, \"max_len\": %.2f, \"max_entropy\": %.2f, \"contains_sensitive\": %d, \"status\": \"%s\", \"label\": \"%s\"}\n",
             e->timestamp_ns, //exact time event was captured in nanoseconds(since system was booted up)
             wall_time, //Unix timestamp (seconds since 1970) when the log entry was recorded

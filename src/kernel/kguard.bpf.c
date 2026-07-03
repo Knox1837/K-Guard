@@ -11,6 +11,70 @@ char _license[] SEC("license") = "GPL";
 #define TYPE_EXIT         3
 #define TYPE_OPEN         4
 #define TYPE_TCP_CONNECT  5
+#define TYPE_TCP_CLOSE    6  
+
+// Since tcp_close() is only ever called for TCP sockets, we can hardcode the protocol number which is 6 for TCP.
+#define IPPROTO_TCP_VAL   6
+
+// To holde socket data
+struct socket_stats {
+	u64 bytes_sent;
+	u64 bytes_recv;
+	u64 start_ts;
+	u32 parent_pid;
+	char parent_comm[16];
+};
+
+// Map to track active socket telementry
+struct {
+	__uint(type, BPF_MAP_TYPE_HASH);
+	__uint(max_entries, 10240);
+	__type(key, u32); // PID as key
+	__type(value, struct socket_stats);
+} socket_metrics SEC(".maps");
+
+// Update counters on every send/receive for TCP and UDP sockets. 
+// This is done in the kprobes for tcp_sendmsg, tcp_recvmsg, udp_sendmsg, and udp_recvmsg. 
+// The counters are stored in the socket_metrics map, keyed by PID.
+SEC("kprobe/tcp_sendmsg")
+int BPF_KPROBE(tcp_sendmsg, struct sock *sk, struct msghdr *msg, size_t size) {
+	u32 pid = bpf_get_current_pid_tgid() >> 32;
+	struct socket_stats *stats = bpf_map_lookup_elem(&socket_metrics, &pid);
+	if (stats) {
+		stats->bytes_sent += size;
+	}
+	return 0;
+}
+SEC("kprobe/tcp_recvmsg")
+int BPF_KPROBE(handle_tcp_recvmsg, struct sock *sk, struct msghdr *msg, size_t len) {
+    u32 pid = bpf_get_current_pid_tgid() >> 32;
+    struct socket_stats *stats = bpf_map_lookup_elem(&socket_metrics, &pid);
+    if (stats && len > 0 && len < 65535) {
+        stats->bytes_recv += len; 
+    }
+    return 0;
+}
+
+SEC("kprobe/udp_sendmsg")
+int BPF_KPROBE(handle_udp_sendmsg, struct sock *sk, struct msghdr *msg, size_t size) {
+	u32 pid = bpf_get_current_pid_tgid() >> 32;
+	struct socket_stats *stats = bpf_map_lookup_elem(&socket_metrics, &pid);
+	if (stats) {
+		stats->bytes_sent += size;
+	}
+	return 0;
+}
+
+SEC("kprobe/udp_recvmsg")
+int BPF_KPROBE(handle_udp_recvmsg, struct sock *sk, struct msghdr *msg, size_t len) {
+    u32 pid = bpf_get_current_pid_tgid() >> 32;
+    
+    struct socket_stats *stats = bpf_map_lookup_elem(&socket_metrics, &pid);
+    if (stats && len > 0 && len < 65535) {
+        stats->bytes_recv += len; 
+    }
+    return 0;
+}
 
 // Section 3.3 Struct: Composite key mapping to unique mounted filesystem lifetime
 struct dedup_key_t {
@@ -19,7 +83,6 @@ struct dedup_key_t {
     unsigned int dev;
 };
 
-// FIX: wrapper struct so the BPF map value type macro has a clean named type
 // to hold the filename string stashed between sys_enter_openat and sys_exit_openat.
 struct fname_buf_t {
     char name[256];
@@ -37,8 +100,16 @@ struct event_t {
     long long retval;
     char comm[16];
     char filename[256];               
-    unsigned int dest_ip;
-    unsigned short dest_port;
+    unsigned int dest_ip; // Big-endian network byte order for TCP/UDP connections so use __builtin_bswap16() when reading from the kernel struct sock.
+    unsigned short dest_port; // Big-endian network byte order for TCP/UDP connections so use __builtin_bswap16() when reading from the kernel struct sock.
+
+    // These fields are only populated for TYPE_TCP_CLOSE events, and are used to capture the full lifetime summary of a TCP connection.
+    unsigned int src_ip;          // source IP, host byte order
+    unsigned short src_port;      // source port, host byte order
+    unsigned char protocol;       // IPPROTO_TCP_VAL for now; room to add UDP later
+    unsigned long long bytes_sent;   // total bytes sent over the socket's lifetime
+    unsigned long long bytes_recv;   // total bytes received over the socket's lifetime
+    unsigned long long duration_ns;  // total duration of the connection in nanoseconds
 };
 
 // 8 MB Shared Ring Buffer allocation specified by Section 3.2
@@ -91,6 +162,15 @@ static __always_inline void fill_common_context(struct event_t *e, unsigned int 
     e->retval = 0;
     e->dest_ip = 0;
     e->dest_port = 0;
+
+    // Zero out the TCP lifetime summary fields as bpf_ringbuf_reserve() does not zero the memory for us.
+    // These fields are only populated for TYPE_TCP_CLOSE events.
+    e->src_ip = 0;
+    e->src_port = 0;
+    e->protocol = 0;
+    e->bytes_sent = 0;
+    e->bytes_recv = 0;
+    e->duration_ns = 0;
 
     struct task_struct *real_parent = BPF_CORE_READ(task, real_parent);
     e->ppid = BPF_CORE_READ(real_parent, tgid);
@@ -254,8 +334,18 @@ int handle_exit(struct trace_event_raw_sched_process_template *ctx) {
 }
 
 // 5. NETWORK CONNECTION ESTABLISHMENT
-SEC("kprobe/tcp_v4_connect")
-int BPF_KPROBE(handle_tcp_v4_connect, struct sock *sk) {
+SEC("kprobe/tcp_connect")
+int BPF_KPROBE(handle_tcp_connect, struct sock *sk) {
+    u32 pid = bpf_get_current_pid_tgid() >> 32;
+    struct socket_stats stats = {};
+    stats.start_ts = bpf_ktime_get_ns();
+
+    struct task_struct *task = (struct task_struct *)bpf_get_current_task();
+
+    stats.parent_pid = BPF_CORE_READ(task, real_parent, tgid); // Parent PID
+    bpf_probe_read_kernel_str(&stats.parent_comm, sizeof(stats.parent_comm), BPF_CORE_READ(task, real_parent, comm));
+    bpf_map_update_elem(&socket_metrics, &pid, &stats, BPF_ANY);
+	
     struct event_t *e = bpf_ringbuf_reserve(&rb, sizeof(*e), 0);
     if (!e) return 0;
 
@@ -268,5 +358,52 @@ int BPF_KPROBE(handle_tcp_v4_connect, struct sock *sk) {
     bpf_snprintf(e->filename, sizeof(e->filename), "Network TCP Outbound Connection", NULL, 0);
 
     bpf_ringbuf_submit(e, 0);
+    return 0;
+}
+
+//Add tcp inbound connection here
+
+
+// end
+
+// Hook for TCP socket closure.
+SEC("kprobe/tcp_close")
+int BPF_KPROBE(handle_tcp_close, struct sock *sk) {
+    u32 pid = bpf_get_current_pid_tgid() >> 32;
+
+    // We can extend this to handle inbound connections too
+    struct socket_stats *stats = bpf_map_lookup_elem(&socket_metrics, &pid);
+    if (!stats) {
+        return 0;
+    }
+    // copy the entire map value to a local variable to avoid potential issues with concurrent updates while we are reading the data for the event.
+    struct socket_stats local_stats = *stats;
+
+    u64 end_ts = bpf_ktime_get_ns();
+
+    struct event_t *e = bpf_ringbuf_reserve(&rb, sizeof(*e), 0);
+    if (!e) {
+        // Even if we can't emit the event, we still want to clean up the socket_metrics map to avoid memory leaks.
+        bpf_map_delete_elem(&socket_metrics, &pid);
+        return 0;
+    }
+
+    fill_common_context(e, TYPE_TCP_CLOSE);
+
+    e->dest_ip   = BPF_CORE_READ(sk, __sk_common.skc_daddr);
+    e->dest_port = __builtin_bswap16(BPF_CORE_READ(sk, __sk_common.skc_dport));
+    e->src_ip    = BPF_CORE_READ(sk, __sk_common.skc_rcv_saddr);
+    e->src_port  = BPF_CORE_READ(sk, __sk_common.skc_num); // already host byte order, no bswap needed
+
+    e->protocol   = IPPROTO_TCP_VAL;
+    e->bytes_sent = local_stats.bytes_sent;
+    e->bytes_recv = local_stats.bytes_recv;
+    e->duration_ns = end_ts - local_stats.start_ts;
+
+    bpf_snprintf(e->filename, sizeof(e->filename), "Network TCP Connection Closed", NULL, 0);
+
+    bpf_ringbuf_submit(e, 0);
+
+    bpf_map_delete_elem(&socket_metrics, &pid);
     return 0;
 }

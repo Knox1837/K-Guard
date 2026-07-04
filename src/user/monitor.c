@@ -277,10 +277,11 @@ static int handle_event(void *ctx, void *data, size_t sz) {
                    e->pid, e->comm, ip_str, e->dest_port);
             break;
         case TYPE_TCP_CLOSE:
-            printf("\"event\": \"NET_CLOSE\", \"pid\": %u, \"comm\": \"%s\", \"src\": \"%s:%u\", \"dest\": \"%s:%u\", "
-                   "\"bytes_sent\": %llu, \"bytes_recv\": %llu, \"duration_ms\": %.3f}\n",
+            printf("\"event\": \"NET_CLOSE\", \"pid\": %u, \"comm\": \"%s\", \"src\": \"%s:%u\", "
+                   "\"dest_ip\": \"%s\", \"dest_port\": %u, "
+                   "\"bytes_sent\": %llu, \"bytes_recv\": %llu, \"duration_ns\": %llu, \"duration_ms\": %.3f}\n",
                    e->pid, e->comm, src_ip_str, e->src_port, ip_str, e->dest_port,
-                   e->bytes_sent, e->bytes_recv, e->duration_ns / 1e6);
+                   e->bytes_sent, e->bytes_recv, e->duration_ns, e->duration_ns / 1e6);
             break;
         default:
             printf("\"event\": \"UNKNOWN\"}\n");

@@ -47,6 +47,7 @@ TYPE_FORK = 2
 TYPE_EXIT = 3
 TYPE_OPEN = 4
 TYPE_TCP_CONNECT = 5
+TYPE_TCP_CLOSE = 6
 
 last_render_time = time.time()
 node_count_history = []
@@ -131,7 +132,11 @@ try:
                 target = event.get("target", "unknown")
                 fd = event.get("assigned_fd")
                 
-                is_sensitive = any(target.startswith(d) for d in SENSITIVE_DIRECTORIES)
+                SENSITIVE_KEYWORDS = ("shadow", "passwd", "secret", "root", ".ssh", "credential")
+                is_sensitive = (
+                    any(target.startswith(d) for d in SENSITIVE_DIRECTORIES)
+                    or any(kw in target for kw in SENSITIVE_KEYWORDS)
+                )
                 
                 if is_sensitive:
                     if not G.has_node(process_node_id):
@@ -152,9 +157,22 @@ try:
                     G.add_node(process_node_id, type="process", comm=comm, pid=pid)
 
                 G.add_node(network_target, type="network_socket", ip=dest_ip, port=dest_port)
-                G.add_edge(process_node_id, network_target, relation="CONNECTED_TO", timestamp=ts)
+                G.add_edge(process_node_id, network_target, relation="CONNECTED_TO",
+                           dest_port=dest_port, timestamp=ts)
                 touch(process_node_id, ts)
                 touch(network_target, ts)
+
+            # NETWORK CLOSE HANDLING 
+            elif type_id == TYPE_TCP_CLOSE:
+                dest_ip = event.get("dest_ip")
+                dest_port = event.get("dest_port")
+                network_target = f"{dest_ip}:{dest_port}"
+
+                if G.has_edge(process_node_id, network_target):
+                    G[process_node_id][network_target]["bytes_sent"] = event.get("bytes_sent", 0)
+                    G[process_node_id][network_target]["bytes_recv"] = event.get("bytes_recv", 0)
+                    G[process_node_id][network_target]["duration_ns"] = event.get("duration_ns", 0)
+                touch(process_node_id, ts)
 
             # 5. EXIT HANDLING
             elif type_id == TYPE_EXIT:

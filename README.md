@@ -55,3 +55,33 @@ On macOS:
 ```
 open output/kguard_interactive_graph.html
 ```
+
+
+### Full test run (capture → attack → detect)
+
+Run these **sequentially**, each in its own terminal:
+
+```bash
+# Terminal 1 — start the capture pipeline
+sudo ./monitor | python3 src/user/graphengine.py
+```
+
+```bash
+# Terminal 2 — start the attacker's listener
+nc -lvnp 9999
+```
+
+```bash
+# Terminal 3 — run the exfiltration simulation
+python3 script/exfil.py
+```
+
+Wait for `exfil.py` to print `[+] Exfiltration complete.`, then go back to **Terminal 1** and
+press `Ctrl+C` to stop the monitor and flush the final graph to
+`output/system_behavior_graph.gexf`.
+
+Finally, run the detector:
+
+```bash
+python3 -m ml.detector
+```

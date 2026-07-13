@@ -4,6 +4,7 @@ from pathlib import Path
 
 import networkx as nx
 from pyvis.network import Network
+import igraph as ig
 
 BASE_DIR = Path(__file__).resolve().parents[2]
 OUTPUT_DIR = BASE_DIR / "output"
@@ -40,7 +41,14 @@ def export_interactive_graph(
             graph_to_render = graph_obj_orignal
 
     graph_obj = graph_to_render
-    
+    g_ig = ig.Graph.from_networkx(graph_obj)    
+
+    if len(g_ig.vs) > 200:
+        print(f"[INFO] Graph has {len(g_ig.vs)} size exceeding 200, Filtering by degree.")
+        top_indices = sorted(range(len(g_ig.vs)), key=lambda i: g_ig.degree(i), reverse=True)[:200]
+        g_ig = g_ig.subgraph(top_indices)
+        graph_obj = g_ig.to_networkx()
+
     # Create a PyVis network object with dark mode and smooth physics
     net = Network(height="800px", width="100%", bgcolor="#222222", font_color="white", directed=True)
     # Instead of default 1000, set to 150

@@ -474,7 +474,7 @@ class KGuardGUI:
         def _run():
             try:
                 result = subprocess.run(
-                    [sys.executable, str(ML_DETECTOR)],
+                    [sys.executable, "-m", str("ml.detector")],
                     cwd=str(KGUARD_DIR),
                     capture_output=True, text=True, timeout=120
                 )

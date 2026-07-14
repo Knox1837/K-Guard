@@ -1,5 +1,3 @@
-# sudo python3 kguard_gui.py
-
 import tkinter as tk
 from tkinter import ttk, scrolledtext, messagebox
 import subprocess
@@ -12,20 +10,6 @@ import json
 import webbrowser
 from pathlib import Path
 from datetime import datetime
-from src.user.graph import export_interactive_graph
-
-if "SUDO_USER" in os.environ:
-    os.environ.setdefault("DISPLAY", ":0")
-    xauth = f"/home/{os.environ['SUDO_USER']}/.Xauthority"
-    if Path(xauth).exists():
-        os.environ["XAUTHORITY"] = xauth
-
-if os.geteuid() != 0:
-    try:
-        os.execvp("sudo", ["sudo", sys.executable] + sys.argv)
-    except Exception as e:
-        print(f"Failed to elevate to sudo: {e}")
-        sys.exit(1)
 
 KGUARD_DIR   = Path(__file__).parent
 OUTPUT_DIR   = KGUARD_DIR / "output"
@@ -318,10 +302,10 @@ class KGuardGUI:
                 f"'{MONITOR_BIN}' not found.\nRun 'make' in the K-Guard directory first.")
             return
 
-        if os.geteuid() != 0:
-            messagebox.showwarning("Root required",
-                "The eBPF monitor must run as root.\n"
-                "Please restart with: sudo python3 kguard_gui.py")
+        if not GRAPH_ENGINE.exists():
+            messagebox.showerror("Graph engine not found",
+                f"'{GRAPH_ENGINE}' not found.\n"
+                "The graph engine module needs to exist at src/user/graphengine.py.")
             return
 
         self._running = True
@@ -336,12 +320,17 @@ class KGuardGUI:
         self._btn_stop.configure(state=tk.NORMAL)
 
         self._log(self._event_log, "Starting eBPF monitor pipeline...", "info")
+        self._log(self._event_log,
+                   "If prompted, enter your sudo password in the terminal "
+                   "you launched this app from.", "warn")
         self._log(self._graph_log, "Graph engine initializing...", "info")
 
         try:
-            # C monitor binary — stdout (JSON events) piped to graphengine
+            # Only the eBPF monitor itself needs root — requested here via
+            # a scoped sudo call, not for the whole app. sudo will prompt
+            # on the controlling terminal (not through this GUI) if needed.
             self._monitor_proc = subprocess.Popen(
-                [str(MONITOR_BIN)],
+                ["sudo", str(MONITOR_BIN)],
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
             )
@@ -352,6 +341,7 @@ class KGuardGUI:
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
                 text=True, bufsize=1,
+                cwd=str(KGUARD_DIR),
             )
             self._monitor_proc.stdout.close()
 
@@ -474,7 +464,7 @@ class KGuardGUI:
         def _run():
             try:
                 result = subprocess.run(
-                    [sys.executable, "-m", str("ml.detector")],
+                    [sys.executable, "-m", "ml.detector"],
                     cwd=str(KGUARD_DIR),
                     capture_output=True, text=True, timeout=120
                 )
@@ -575,33 +565,97 @@ class KGuardGUI:
         """Re-render then update the info label."""
         self._render_graph()
 
+    def _resolve_browser_command(self):
+        """Find a real web browser to launch, independent of the (possibly
+        misconfigured) default handler for .html files.
+
+        Strategy, in order:
+          1. Ask xdg-settings for the system's default *web browser*
+             (a separate setting from "default app for .html files").
+          2. Parse that browser's .desktop Exec line directly.
+          3. Fall back to a shortlist of common browser binaries on PATH.
+        Returns a list of argv, or None.
+        """
+        import shutil
+
+        # 1 & 2: default-web-browser setting -> .desktop Exec line
+        try:
+            out = subprocess.run(
+                ["xdg-settings", "get", "default-web-browser"],
+                capture_output=True, text=True, timeout=5
+            )
+            desktop_id = out.stdout.strip()
+            if out.returncode == 0 and desktop_id.endswith(".desktop"):
+                search_dirs = [
+                    Path.home() / ".local/share/applications",
+                    Path("/usr/local/share/applications"),
+                    Path("/usr/share/applications"),
+                ]
+                for d in search_dirs:
+                    desktop_path = d / desktop_id
+                    if desktop_path.exists():
+                        for line in desktop_path.read_text(errors="ignore").splitlines():
+                            if line.startswith("Exec="):
+                                exec_line = line[len("Exec="):].strip()
+                                # Strip desktop-entry field codes like %u %U %f %F
+                                binary = exec_line.split()[0]
+                                for code in ("%u", "%U", "%f", "%F"):
+                                    binary = binary.replace(code, "")
+                                if shutil.which(binary.split("/")[-1]) or Path(binary).exists():
+                                    return [binary]
+                        break
+        except Exception:
+            pass
+
+        # 3: common browser binaries, first one that exists wins.
+        # xdg-open is last since it's what caused the original .html
+        # mime-type misconfiguration in the first place.
+        for candidate in ("firefox", "google-chrome", "chromium",
+                           "chromium-browser", "brave-browser", "epiphany",
+                           "xdg-open"):
+            if shutil.which(candidate):
+                return [candidate]
+
+        return None
+
     def _open_in_browser(self):
         if not HTML_FILE.exists():
             messagebox.showwarning("No graph file",
                 "Render the graph first (Stage 3).")
             return
-            
-        user = os.environ.get("SUDO_USER", "root")
-        uid = subprocess.check_output(["id", "-u", user]).decode().strip()
-        
-        # Environment setup for the user session
-        env = {
-            "DISPLAY": os.environ.get("DISPLAY", ":0"),
-            "WAYLAND_DISPLAY": os.environ.get("WAYLAND_DISPLAY", "wayland-0"),
-            "XDG_RUNTIME_DIR": f"/run/user/{uid}",
-            "HOME": f"/home/{user}",
-            "PATH": os.environ.get("PATH", "/usr/bin:/bin"),
-        }
-        
+
         try:
-            # Use xdg-open directly to launch the default browser
-            subprocess.Popen(
-                ["sudo", "-u", user, "xdg-open", str(HTML_FILE)],
-                env={**os.environ, **env},
-                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
+            browser_cmd = self._resolve_browser_command()
+            if not browser_cmd:
+                messagebox.showerror(
+                    "No browser found",
+                    "Couldn't find a web browser to open the graph with.\n\n"
+                    f"You can open it manually:\n{HTML_FILE}")
+                return
+
+            full_cmd = browser_cmd + [str(HTML_FILE)]
+            proc = subprocess.Popen(
+                full_cmd,
+                stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True
             )
+
+            # Give it a moment, then check if it died immediately (real
+            # browsers stay running; a failed launch exits right away)
+            def _check_launch():
+                ret = proc.poll()
+                if ret is not None and ret != 0:
+                    _, err = proc.communicate()
+                    messagebox.showerror(
+                        "Browser failed to launch",
+                        f"Command: {' '.join(full_cmd)}\n"
+                        f"Exit code: {ret}\n\n"
+                        f"{err.strip() or '(no error output)'}\n\n"
+                        f"You can open the file manually:\n{HTML_FILE}")
+            self.root.after(1500, _check_launch)
+
         except Exception as e:
-            messagebox.showerror("Error", f"Failed to open browser: {e}")
+            messagebox.showerror("Error", f"Failed to open browser: {e}\n\n"
+                                  f"You can open it manually:\n{HTML_FILE}")
 
 
     def _on_close(self):
@@ -614,6 +668,10 @@ class KGuardGUI:
 
     def _toggle_clc(self):
         if not self._clc_running:
+            if not CLC_DAEMON.exists():
+                messagebox.showerror("CLC daemon not found",
+                    f"'{CLC_DAEMON}' not found.")
+                return
             self._clc_running = True
             self._btn_clc.configure(text="🛡  Stop CLC Daemon", fg=RED)
             self._log(self._clc_log, "Launching CLC Integrity Daemon...", "info")
@@ -650,13 +708,31 @@ class KGuardGUI:
 
     def _trace_pid(self):
         pid = self.pid_entry.get()
-        # Trigger the engine to re-render with the filter
+
+        if not GEXF_FILE.exists():
+            messagebox.showwarning("No graph data",
+                "Run Stage 1 first to generate graph data.")
+            return
+
+        try:
+            from src.user.graph import export_interactive_graph
+        except ImportError:
+            messagebox.showerror(
+                "Module not found",
+                "'src/user/graph.py' (export_interactive_graph) was not found.")
+            return
+
         from networkx import read_gexf
-        graph = read_gexf(GEXF_FILE)
-        if pid.isdigit():
-            export_interactive_graph(graph, filter_pid=int(pid), html_path=FILTERED_HTML_FILE)
-        else:
-            export_interactive_graph(graph, filter_name=pid, html_path=FILTERED_HTML_FILE)
+        try:
+            graph = read_gexf(str(GEXF_FILE))
+            if pid.isdigit():
+                export_interactive_graph(graph, filter_pid=int(pid), html_path=FILTERED_HTML_FILE)
+            else:
+                export_interactive_graph(graph, filter_name=pid, html_path=FILTERED_HTML_FILE)
+            messagebox.showinfo("Filtered graph saved",
+                f"Saved to {FILTERED_HTML_FILE.name}")
+        except Exception as e:
+            messagebox.showerror("Filter failed", str(e))
 
 if __name__ == "__main__":
     try:

@@ -359,7 +359,43 @@ static int handle_event(void *ctx, void *data, size_t sz) {
     struct timespec ts;
     clock_gettime(CLOCK_REALTIME, &ts);
     double wall_time = ts.tv_sec + (ts.tv_nsec / 1e9);
+    printf("{\"timestamp_ns\": %llu, \"start_time_ns\": %llu, \"type_id\": %u, \"out_degree\": %d, \"in_degree\": %d, ",
+           e->timestamp_ns, e->start_time_ns, e->event_type, out_degree, in_degree);
 
+    switch (e->event_type) {
+        case TYPE_EXEC:
+            printf("\"event\": \"EXEC\", \"pid\": %u, \"ppid\": %u, \"uid\": %u, \"gid\": %u, \"comm\": \"%s\", \"target\": \"%s\"}\n",
+                   e->pid, e->ppid, e->uid, e->gid, e->comm, e->filename);
+            break;
+        case TYPE_OPEN:
+            printf("\"event\": \"OPEN\", \"pid\": %u, \"ppid\": %u, \"uid\": %u, \"gid\": %u, \"comm\": \"%s\", \"target\": \"%s\", \"assigned_fd\": %lld}\n",
+                   e->pid, e->ppid, e->uid, e->gid, e->comm, e->filename, e->retval);
+            break;
+        case TYPE_FORK:
+            printf("\"event\": \"FORK\", \"pid\": %u, \"ppid\": %u, \"comm\": \"%s\", \"child_pid\": %lld}\n",
+                   e->pid, e->ppid, e->comm, e->retval);
+            break;
+        case TYPE_EXIT:
+            printf("\"event\": \"EXIT\", \"pid\": %u, \"comm\": \"%s\", \"exit_code\": %lld}\n",
+                   e->pid, e->comm, e->retval);
+            break;
+        case TYPE_TCP_CONNECT:
+            printf("\"event\": \"NET_CONNECT\", \"pid\": %u, \"comm\": \"%s\", \"dest_ip\": \"%s\", \"dest_port\": %u}\n",
+                   e->pid, e->comm, ip_str, e->dest_port);
+            break;
+        case TYPE_TCP_CLOSE:
+            printf("\"event\": \"NET_CLOSE\", \"pid\": %u, \"comm\": \"%s\", \"src\": \"%s:%u\", "
+                   "\"dest_ip\": \"%s\", \"dest_port\": %u, "
+                   "\"bytes_sent\": %llu, \"bytes_recv\": %llu, \"duration_ns\": %llu, \"duration_ms\": %.3f}\n",
+                   e->pid, e->comm, src_ip_str, e->src_port, ip_str, e->dest_port,
+                   e->bytes_sent, e->bytes_recv, e->duration_ns, e->duration_ns / 1e6);
+            break;
+        default:
+            printf("\"event\": \"UNKNOWN\"}\n");
+            break;
+    }
+    fflush(stdout);
+    
     const char *event_str = "UNKNOWN";
     switch (e->event_type) {
         case TYPE_EXEC:        event_str = "EXEC";        break;
@@ -383,8 +419,8 @@ static int handle_event(void *ctx, void *data, size_t sz) {
     }
 
     // This is just logging to stdout for human inspection, not the ML model. The ML model gets its own JSONL records below.
-    printf("[%s] {\"timestamp_ns\": %llu, \"pid\": %u, \"comm\": \"%s\" \n", event_str, e->timestamp_ns, e->pid, e->comm);
-    fflush(stdout);
+    // printf("[%s] {\"timestamp_ns\": %llu, \"pid\": %u, \"comm\": \"%s\" \n", event_str, e->timestamp_ns, e->pid, e->comm);
+    // fflush(stdout);
 
     const char *status = "RUNNING"; // Default baseline
     switch (e->event_type) {

@@ -321,7 +321,7 @@ def filter_by_name(graph, target_name):
     return clean_graph.subgraph(subgraph_nodes)
 
 from networkx import read_gexf
-# graph = read_gexf("system_behavior_graph.gexf")
-# export_interactive_graph(graph, html_path="test.html", filter_name="python3")
-# for n in graph.nodes(data=True):
-#     print(f"Node: {n[0]}, Attributes: {n[1].get('pid')}")
+#graph = read_gexf("output/system_behavior_graph.gexf")
+#export_interactive_graph(graph, html_path="test.html")
+#for n in graph.nodes(data=True):
+#    print(f"Node: {n[0]}, Attributes: {n[1].get('pid')}")

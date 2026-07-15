@@ -17,6 +17,20 @@
 #define TYPE_OPEN         4
 #define TYPE_TCP_CONNECT  5
 #define TYPE_TCP_CLOSE    6
+
+#define TYPE_TCP_ACCEPT    7
+#define TYPE_DUP_REDIRECT  8
+#define TYPE_CREDS_CHANGE  9
+#define TYPE_PTRACE        10
+#define TYPE_MPROTECT_RWX  11
+#define TYPE_MEMFD_CREATE  12
+#define TYPE_UNLINK        13
+#define TYPE_RENAME        14
+#define TYPE_CHMOD         15
+#define TYPE_MODULE_LOAD   16
+#define TYPE_MODULE_UNLOAD 17
+#define TYPE_RAW_SOCKET    18
+
 #define PID_HASH_SIZE 1024
 
 // Per-process degree/feature tracking Keyed by (pid, start_time_ns) together, NOT pid alone. PIDs can be reused by the kernel, and start_time_ns is a unique identifier 
@@ -156,6 +170,10 @@ struct event_t {
     unsigned long long bytes_sent;
     unsigned long long bytes_recv;
     unsigned long long duration_ns;
+
+    unsigned long long arg1;
+    unsigned long long arg2;
+    char extra_str[128];
 };
 
 FILE *jsonl_file = NULL;
@@ -184,16 +202,69 @@ void generate_session_id(char *buf) {
     buf[32] = '\0';
 }
 
+static void read_cmdline(pid_t pid, char *buf, size_t size)
+{
+    char path[64];
+    snprintf(path, sizeof(path), "/proc/%d/cmdline", pid);
+
+    FILE *fp = fopen(path, "rb");
+    if (!fp) {
+        buf[0] = '\0';
+        return;
+    }
+
+    size_t n = fread(buf, 1, size - 1, fp);
+    fclose(fp);
+
+    buf[n] = '\0';
+
+    /* /proc/<pid>/cmdline separates args with '\0' */
+    for (size_t i = 0; i < n; i++) {
+        if (buf[i] == '\0')
+            buf[i] = ' ';
+    }
+}
+
+// This function is used to escape special characters in strings before writing them to JSONL files. 
+// It handles quotes, backslashes, newlines, and tabs, while dropping other control characters to ensure valid JSON output.
+static const char *json_escape(const char *in) {
+    static char bufs[6][300];
+    static int slot = 0;
+    char *out = bufs[slot];
+    slot = (slot + 1) % 6;
+
+    size_t j = 0;
+    for (size_t i = 0; in[i] != '\0' && j < sizeof(bufs[0]) - 2; i++) {
+        unsigned char c = (unsigned char)in[i];
+        if (c == '"' || c == '\\') {
+            out[j++] = '\\';
+            out[j++] = (char)c;
+        } else if (c == '\n') {
+            out[j++] = '\\'; out[j++] = 'n';
+        } else if (c == '\t') {
+            out[j++] = '\\'; out[j++] = 't';
+        } else if (c < 0x20) {
+            continue; // drop other control chars rather than emit invalid JSON
+        } else {
+            out[j++] = (char)c;
+        }
+    }
+    out[j] = '\0';
+    return out;
+}
+
 static int handle_event(void *ctx, void *data, size_t sz) {
     struct event_t *e = data;
-    char ip_str[INET_ADDRSTRLEN] = "0.0.0.0";      // dest IP, human-readable
-    char src_ip_str[INET_ADDRSTRLEN] = "0.0.0.0";  // FIX: source IP, only meaningful for TYPE_TCP_CLOSE
+    char ip_str[INET_ADDRSTRLEN] = "";      // dest IP, human-readable, left intentionally empty for non-network events
+    char src_ip_str[INET_ADDRSTRLEN] = "";  // source IP, only meaningful for TYPE_TCP_CLOSE, left intentionally empty for non-network events
 
-    if (e->event_type == TYPE_TCP_CONNECT || e->event_type == TYPE_TCP_CLOSE) {
+    if (e->event_type == TYPE_TCP_CONNECT || e->event_type == TYPE_TCP_CLOSE ||
+        e->event_type == TYPE_TCP_ACCEPT  || e->event_type == TYPE_DUP_REDIRECT) {
         struct in_addr addr = { .s_addr = e->dest_ip };
         inet_ntop(AF_INET, &addr, ip_str, sizeof(ip_str));
     }
-    if (e->event_type == TYPE_TCP_CLOSE) {
+    if (e->event_type == TYPE_TCP_CLOSE || e->event_type == TYPE_TCP_ACCEPT ||
+        e->event_type == TYPE_DUP_REDIRECT) {
         struct in_addr src_addr = { .s_addr = e->src_ip };
         inet_ntop(AF_INET, &src_addr, src_ip_str, sizeof(src_ip_str));
     }
@@ -205,6 +276,12 @@ static int handle_event(void *ctx, void *data, size_t sz) {
             if (proc_stats) {
                 proc_stats->out_degree++;
                 update_node_features(proc_stats, e->filename);
+                if (e->extra_str[0] != '\0') { 
+                    update_node_features(proc_stats, e->extra_str);
+                }
+                if (e->extra_str[64] != '\0') {
+                    update_node_features(proc_stats, e->extra_str + 64);
+                }
             }
             break;
         case TYPE_OPEN:
@@ -241,6 +318,32 @@ static int handle_event(void *ctx, void *data, size_t sz) {
                 update_node_features(proc_stats, target_buf);
             }
             break;
+        case TYPE_TCP_ACCEPT:
+            // inbound connection counts as an in_degree edge (someone
+            // connected TO this process), mirroring how TYPE_TCP_CONNECT
+            // counts an out_degree edge for outbound connections.
+            if (proc_stats) {
+                char target_buf[INET_ADDRSTRLEN + 8];
+                snprintf(target_buf, sizeof(target_buf), "%s:%u", ip_str, e->dest_port);
+                proc_stats->in_degree++;
+                update_node_features(proc_stats, target_buf);
+            }
+            break;
+        case TYPE_DUP_REDIRECT:
+        case TYPE_CREDS_CHANGE:
+        case TYPE_PTRACE:
+        case TYPE_MPROTECT_RWX:
+        case TYPE_MEMFD_CREATE:
+        case TYPE_UNLINK:
+        case TYPE_RENAME:
+        case TYPE_CHMOD:
+        case TYPE_MODULE_LOAD:
+        case TYPE_MODULE_UNLOAD:
+        case TYPE_RAW_SOCKET:
+            // these events are security signals, not process/
+            // file/network graph edges hence there is intentionally no degree update.
+            // They still get their own jsonl records though.
+            break;
         default:
             break;
     }
@@ -251,43 +354,6 @@ static int handle_event(void *ctx, void *data, size_t sz) {
     float max_len = proc_stats ? proc_stats->max_len : 0.0f;
     float max_entropy = proc_stats ? proc_stats->max_entropy : 0.0f;
     int contains_sensitive = proc_stats ? proc_stats->contains_sensitive : 0;
-
-    printf("{\"timestamp_ns\": %llu, \"start_time_ns\": %llu, \"type_id\": %u, \"out_degree\": %d, \"in_degree\": %d, ",
-           e->timestamp_ns, e->start_time_ns, e->event_type, out_degree, in_degree);
-
-    switch (e->event_type) {
-        case TYPE_EXEC:
-            printf("\"event\": \"EXEC\", \"pid\": %u, \"ppid\": %u, \"uid\": %u, \"gid\": %u, \"comm\": \"%s\", \"target\": \"%s\"}\n",
-                   e->pid, e->ppid, e->uid, e->gid, e->comm, e->filename);
-            break;
-        case TYPE_OPEN:
-            printf("\"event\": \"OPEN\", \"pid\": %u, \"ppid\": %u, \"uid\": %u, \"gid\": %u, \"comm\": \"%s\", \"target\": \"%s\", \"assigned_fd\": %lld}\n",
-                   e->pid, e->ppid, e->uid, e->gid, e->comm, e->filename, e->retval);
-            break;
-        case TYPE_FORK:
-            printf("\"event\": \"FORK\", \"pid\": %u, \"ppid\": %u, \"comm\": \"%s\", \"child_pid\": %lld}\n",
-                   e->pid, e->ppid, e->comm, e->retval);
-            break;
-        case TYPE_EXIT:
-            printf("\"event\": \"EXIT\", \"pid\": %u, \"comm\": \"%s\", \"exit_code\": %lld}\n",
-                   e->pid, e->comm, e->retval);
-            break;
-        case TYPE_TCP_CONNECT:
-            printf("\"event\": \"NET_CONNECT\", \"pid\": %u, \"comm\": \"%s\", \"dest_ip\": \"%s\", \"dest_port\": %u}\n",
-                   e->pid, e->comm, ip_str, e->dest_port);
-            break;
-        case TYPE_TCP_CLOSE:
-            printf("\"event\": \"NET_CLOSE\", \"pid\": %u, \"comm\": \"%s\", \"src\": \"%s:%u\", "
-                   "\"dest_ip\": \"%s\", \"dest_port\": %u, "
-                   "\"bytes_sent\": %llu, \"bytes_recv\": %llu, \"duration_ns\": %llu, \"duration_ms\": %.3f}\n",
-                   e->pid, e->comm, src_ip_str, e->src_port, ip_str, e->dest_port,
-                   e->bytes_sent, e->bytes_recv, e->duration_ns, e->duration_ns / 1e6);
-            break;
-        default:
-            printf("\"event\": \"UNKNOWN\"}\n");
-            break;
-    }
-    fflush(stdout);
 
     // Get wall time as a float (seconds since epoch)
     struct timespec ts;
@@ -302,7 +368,23 @@ static int handle_event(void *ctx, void *data, size_t sz) {
         case TYPE_OPEN:        event_str = "OPEN";        break;
         case TYPE_TCP_CONNECT: event_str = "NET_CONNECT"; break;
         case TYPE_TCP_CLOSE:   event_str = "NET_CLOSE";   break;
+        case TYPE_TCP_ACCEPT:  event_str = "NET_ACCEPT";  break;
+        case TYPE_DUP_REDIRECT: event_str = "FD_REDIRECT"; break;
+        case TYPE_CREDS_CHANGE: event_str = "CREDS_CHANGE"; break;
+        case TYPE_PTRACE:       event_str = "PTRACE";       break;
+        case TYPE_MPROTECT_RWX: event_str = "MPROTECT_RWX"; break;
+        case TYPE_MEMFD_CREATE: event_str = "MEMFD_CREATE"; break;
+        case TYPE_UNLINK:       event_str = "UNLINK";       break;
+        case TYPE_RENAME:       event_str = "RENAME";       break;
+        case TYPE_CHMOD:        event_str = "CHMOD";        break;
+        case TYPE_MODULE_LOAD:  event_str = "MODULE_LOAD";  break;
+        case TYPE_MODULE_UNLOAD: event_str = "MODULE_UNLOAD"; break;
+        case TYPE_RAW_SOCKET:   event_str = "RAW_SOCKET";   break;
     }
+
+    // This is just logging to stdout for human inspection, not the ML model. The ML model gets its own JSONL records below.
+    printf("[%s] {\"timestamp_ns\": %llu, \"pid\": %u, \"comm\": \"%s\" \n", event_str, e->timestamp_ns, e->pid, e->comm);
+    fflush(stdout);
 
     const char *status = "RUNNING"; // Default baseline
     switch (e->event_type) {
@@ -311,6 +393,20 @@ static int handle_event(void *ctx, void *data, size_t sz) {
         case TYPE_EXIT:        status = "EXITED";   break;
         case TYPE_TCP_CONNECT: status = "NETWORK";  break;
         case TYPE_TCP_CLOSE:   status = "NET_CLOSED"; break;
+        case TYPE_TCP_ACCEPT:  status = "NET_INBOUND"; break;
+        case TYPE_DUP_REDIRECT:
+        case TYPE_CREDS_CHANGE:
+        case TYPE_PTRACE:
+        case TYPE_MPROTECT_RWX:
+        case TYPE_MEMFD_CREATE:
+        case TYPE_UNLINK:
+        case TYPE_RENAME:
+        case TYPE_CHMOD:
+        case TYPE_MODULE_LOAD:
+        case TYPE_MODULE_UNLOAD:
+        case TYPE_RAW_SOCKET:
+            status = "SECURITY_EVENT";
+            break;
     }
 
 
@@ -351,6 +447,58 @@ static int handle_event(void *ctx, void *data, size_t sz) {
             label = "SUSPECT_C2_BEACON";
         }
     }
+    else if (e->event_type == TYPE_DUP_REDIRECT) {
+        // the kernel side only ever emits this event when it already
+        // confirmed a live socket got dup'd onto fd 0/1/2
+        label = "CRITICAL_REVERSE_SHELL_FD_REDIRECT";
+    }
+    else if (e->event_type == TYPE_CREDS_CHANGE) {
+        // arg1 = new uid, arg2 = old uid (see handle_commit_creds in kguard.bpf.c)
+        if (e->arg1 == 0 && e->arg2 != 0) {
+            label = "RISK_PRIV_ESCALATION_TO_ROOT";
+        } else {
+            label = "INFO_UID_CHANGE";
+        }
+    }
+    else if (e->event_type == TYPE_PTRACE) {
+        // Not every ptrace() call is malicious (debuggers use it constantly),
+        // so this is flagged as SUSPECT rather than RISK/CRITICAL — treat it
+        // as a feature for the model rather than a verdict on its own.
+        label = "SUSPECT_PTRACE";
+    }
+    else if (e->event_type == TYPE_MPROTECT_RWX) {
+        // Kernel side already filtered for the W+X combination specifically.
+        label = "SUSPECT_RWX_MPROTECT";
+    }
+    else if (e->event_type == TYPE_MEMFD_CREATE) {
+        label = "SUSPECT_FILELESS_EXEC_PREP";
+    }
+    else if (e->event_type == TYPE_UNLINK) {
+        // A plain delete is mostly noise but a delete of something that looked
+        // sensitive (matched by the same keyword scan used for OPEN/EXEC
+        // targets) is a much stronger anti-forensics signal.
+        label = contains_sensitive ? "SUSPECT_ANTI_FORENSICS" : "INFO_FILE_DELETE";
+    }
+    else if (e->event_type == TYPE_RENAME) {
+        label = "INFO_FILE_RENAME";
+    }
+    else if (e->event_type == TYPE_CHMOD) {
+        // setuid (04000) / setgid (02000) bits being added is the actual
+        // backdoor pattern whereas a plain permission tweak isn't.
+        unsigned long long mode = e->arg1;
+        label = (mode & 06000) ? "RISK_SETUID_BIT_SET" : "INFO_CHMOD";
+    }
+    else if (e->event_type == TYPE_MODULE_LOAD) {
+        // Loading kernel code is high-severity basically unconditionally hence
+        // no further heuristic filtering applied here on purpose.
+        label = "RISK_KERNEL_MODULE_LOAD";
+    }
+    else if (e->event_type == TYPE_MODULE_UNLOAD) {
+        label = "RISK_KERNEL_MODULE_UNLOAD";
+    }
+    else if (e->event_type == TYPE_RAW_SOCKET) {
+        label = "SUSPECT_RAW_SOCKET";
+    }
     // print in the CSV structure
     // session_id, ts_ns, wall_time, node_id, pid, uid, gid, comm, event, out_degree, in_degree, connections, max_len, max_entropy, contains_sensitive, status, label
     // printf("%s,%llu,%.6f,proc_%u_%llu,%u,%u,%u,\"%s\",\"%s\",%d,%d,%d,%.2f,%.2f,%d,\"%s\",\"%s\"\n",
@@ -370,49 +518,46 @@ static int handle_event(void *ctx, void *data, size_t sz) {
     //        status,
     //        label);
 
-    if (jsonl_file && e->event_type == TYPE_TCP_CLOSE) {
-        // Every field here is candidate feature column for ML model training.
+    // Write the JSONL record to the file if it's open
+    if (jsonl_file) {
+        // extra_str holds two fixed 64-byte argv slots ONLY for TYPE_EXEC
+        // (see handle_execve in kguard.bpf.c) — split them out explicitly
+        // here rather than only exposing the combined raw buffer, which
+        // would silently truncate at the first NUL and lose argv[2].
+        char argv1[65] = {0};
+        char argv2[65] = {0};
+        if (e->event_type == TYPE_EXEC) {
+            memcpy(argv1, e->extra_str, 64);
+            argv1[64] = '\0';
+            memcpy(argv2, e->extra_str + 64, 64);
+            argv2[64] = '\0';
+        }
+
         fprintf(jsonl_file,
             "{\"timestamp_ns\": %llu, \"wall_time\": %.6f, \"node_id\": \"proc_%u_%llu\", "
-            "\"event\": \"%s\", \"pid\": %u, \"ppid\": %u, \"uid\": %u, \"gid\": %u, \"comm\": \"%s\", "
+            "\"event\": \"%s\", \"event_type_id\": %u, "
+            "\"pid\": %u, \"ppid\": %u, \"uid\": %u, \"gid\": %u, \"comm\": \"%s\", "
+            "\"retval\": %lld, \"filename\": \"%s\", \"extra_str\": \"%s\", "
+            "\"argv1\": \"%s\", \"argv2\": \"%s\", \"arg1\": %llu, \"arg2\": %llu, "
             "\"protocol\": %u, \"src_ip\": \"%s\", \"src_port\": %u, \"dest_ip\": \"%s\", \"dest_port\": %u, "
             "\"dest_is_private\": %d, \"dest_is_common_port\": %d, "
             "\"bytes_sent\": %llu, \"bytes_recv\": %llu, \"total_bytes\": %llu, \"send_recv_ratio\": %.4f, "
-            "\"duration_ms\": %.3f, "
+            "\"duration_ns\": %llu, \"duration_ms\": %.3f, "
             "\"out_degree\": %d, \"in_degree\": %d, \"connections\": %d, "
             "\"max_len\": %.2f, \"max_entropy\": %.2f, \"contains_sensitive\": %d, "
             "\"status\": \"%s\", \"label\": \"%s\"}\n",
             e->timestamp_ns, wall_time, e->pid, e->start_time_ns,
-            event_str, e->pid, e->ppid, e->uid, e->gid, e->comm,
+            event_str, e->event_type,
+            e->pid, e->ppid, e->uid, e->gid, json_escape(e->comm),
+            e->retval, json_escape(e->filename), json_escape(e->extra_str),
+            json_escape(argv1), json_escape(argv2), e->arg1, e->arg2,
             e->protocol, src_ip_str, e->src_port, ip_str, e->dest_port,
             dest_is_private, dest_is_common_port,
             e->bytes_sent, e->bytes_recv, total_bytes, send_recv_ratio,
-            duration_ms,
+            e->duration_ns, duration_ms,
             out_degree, in_degree, connections,
             max_len, max_entropy, contains_sensitive,
             status, label
-        );
-        fflush(jsonl_file);
-    }
-    else if (jsonl_file) {
-        fprintf(jsonl_file, "{\"timestamp_ns\": %llu, \"wall_time\": %.6f, \"node_id\": \"proc_%u_%llu\", \"pid\": %u, \"uid\": %u, \"gid\": %u, \"comm\": \"%s\", \"event\": \"%s\", \"out_degree\": %d, \"in_degree\": %d, \"connections\": %d, \"max_len\": %.2f, \"max_entropy\": %.2f, \"contains_sensitive\": %d, \"status\": \"%s\", \"label\": \"%s\"}\n",
-            e->timestamp_ns, //exact time event was captured in nanoseconds(since system was booted up)
-            wall_time, //Unix timestamp (seconds since 1970) when the log entry was recorded
-            e->pid, //Maps to first node_id: process identifier for building graph node uniqueness
-            e->start_time_ns, //proc launch time in nanoseconds
-            e->pid, // maps to next node_id: the literal, raw system Process ID of the application
-            e->uid, //user running the program 0 for root, 1000 for first user, etc
-            e->gid, //group ID of the user running the program
-            e->comm,//short executable name of the process like python
-            event_str,//text label of action like EXEC, FORK 
-            out_degree,
-            in_degree,
-            connections,//in_degree + out_degree
-            max_len, //longest path or command argument length
-            max_entropy, //information randomness score used to identify packed or encrypted malware
-            contains_sensitive, //binary to show if the process has sensitive data
-            status, //placeholder tracking pipeline flags or runtime states
-            label   //target data category or classification label for the process
         );
         fflush(jsonl_file);
     }

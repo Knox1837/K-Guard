@@ -7,7 +7,8 @@ import os
 from pathlib import Path
 
 import networkx as nx
-from sklearn.ensemble import IsolationForest
+import numpy as np
+import joblib
 
 from . import config
 from .features import extract_features
@@ -21,10 +22,20 @@ from provenance import find_root_cause, format_chain  # noqa: E402
 BASE_DIR = Path(__file__).resolve().parent.parent
 OUTPUT_DIR = BASE_DIR / "output"
 GEXF_FILE = OUTPUT_DIR / "system_behavior_graph.gexf"
+MODEL_PATH = Path(__file__).resolve().parent / "models" / "baseline_model.joblib"
 
 def load_graph(path: Path = GEXF_FILE) -> nx.DiGraph:
     print("Loading saved behavioral structure graph...")
     return nx.read_gexf(path)
+
+def load_model(path: Path = MODEL_PATH):
+    if not path.exists():
+        raise FileNotFoundError(
+            f"No trained baseline model at {path}. Run `python3 -m ml.train` "
+            f"first (see ml/train.py docstring for how to capture baseline data)."
+        )
+    bundle = joblib.load(path)
+    return bundle["model"], bundle["meta"]
 
 def run_detection(G: nx.DiGraph):
     """Runs the ML anomaly detector on the given causal provenance graph and prints a report of any anomalies found"""
@@ -36,12 +47,13 @@ def run_detection(G: nx.DiGraph):
         print("No process nodes found in graph")
         return
 
-    clf = IsolationForest(
-        contamination=config.CONTAMINATION,
-        random_state=config.RANDOM_STATE,
-    )
-    clf.fit(X) #builds on a binary tree ensemble so O(logn) to predict each sample, but O(nlogn) to fit the model
-    predictions = clf.predict(X)
+    clf, meta = load_model()
+    threshold = meta["threshold"]
+    print(f"Using baseline model trained {meta['trained_at']} "
+          f"(threshold={threshold:.4f}, target FPR={meta['threshold_fpr_target']:.2%})")
+
+    scores = clf.decision_function(X)  # continuous anomaly score, not a forced quota
+    predictions = np.where(scores < threshold, -1, 1)
 
     print("\nK-GUARD ML CONTENT-AWARE THREAT REPORT")
     mttrc_samples = []

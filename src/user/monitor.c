@@ -390,6 +390,11 @@ static int handle_event(void *ctx, void *data, size_t sz) {
                    e->pid, e->comm, src_ip_str, e->src_port, ip_str, e->dest_port,
                    e->bytes_sent, e->bytes_recv, e->duration_ns, e->duration_ns / 1e6);
             break;
+        case TYPE_DUP_REDIRECT:
+            printf("\"event\": \"FD_REDIRECT\", \"pid\": %u, \"ppid\": %u, \"comm\": \"%s\", "
+           	   "\"redirected_fd\": %lld, \"socket_fd\": %llu}\n",
+                   e->pid, e->ppid, e->comm, e->retval, e->arg1);
+            break;
         default:
             printf("\"event\": \"UNKNOWN\"}\n");
             break;

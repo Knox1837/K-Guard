@@ -135,6 +135,7 @@ def export_interactive_graph(
         node_count_history = [{"label": "now", "count": graph_obj.number_of_nodes()}]
 
     telemetry_script = _build_node_count_chart_html(node_count_history)
+    legend_html = _build_legend_html()
 
     # Save out as an interactive standalone web application webpage layout
     html_path = Path(html_path)
@@ -144,7 +145,7 @@ def export_interactive_graph(
         html = f.read()
     
     if "</body>" in html:
-            html = html.replace("</body>", telemetry_script + "</body>")
+            html = html.replace("</body>", telemetry_script + legend_html + "</body>")
             with open(html_path, "w", encoding="utf-8") as f:
                 f.write(html)
     
@@ -197,6 +198,27 @@ def _load_node_count_history(history_path):
         cleaned_history.append({"label": label, "count": count})
     return cleaned_history
 
+def _build_legend_html():
+    return """
+    <div id="kguard-legend" style="position: absolute; top: 20px; left: 20px; background: #161b22;
+         border: 1px solid #30363d; padding: 10px 14px; border-radius: 8px;
+         box-shadow: 0 8px 24px rgba(0,0,0,0.25); z-index: 1000;">
+        <div style="color: #f0f6fc; font-size: 12px; font-weight: 600; margin-bottom: 6px;">Legend</div>
+        <div style="display:flex;align-items:center;gap:8px;font:11px sans-serif;color:#e6edf3;margin:4px 0;">
+            <div style="width:12px;height:12px;border-radius:50%;background:#ff7675;flex-shrink:0;"></div>Process
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;font:11px sans-serif;color:#e6edf3;margin:4px 0;">
+            <div style="width:12px;height:12px;background:#74b9ff;flex-shrink:0;transform:rotate(45deg);"></div>Binary
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;font:11px sans-serif;color:#e6edf3;margin:4px 0;">
+            <div style="width:12px;height:12px;background:#55efc4;flex-shrink:0;"></div>Data File
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;font:11px sans-serif;color:#e6edf3;margin:4px 0;">
+            <div style="width:0;height:0;border-left:6px solid transparent;border-right:6px solid transparent;
+                 border-bottom:12px solid #a29bfe;flex-shrink:0;"></div>Network
+        </div>
+    </div>
+    """
 
 def _build_node_count_chart_html(history_points):
     labels = [html.escape(str(point.get("label", ""))) for point in history_points]

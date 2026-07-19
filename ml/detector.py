@@ -57,6 +57,12 @@ def run_detection(G: nx.DiGraph):
             continue
 
         print(f"[ANOMALY DETECTED] Process: {node}")
+        # Surface the kernel's own verdict first, if it has one
+        sec_label = G.nodes[node].get("security_label")
+        if sec_label:
+            print(f"   -> KERNEL VERDICT: {sec_label} "
+                  f"(fd {G.nodes[node].get('socket_fd')} → stdio {G.nodes[node].get('redirected_fd')})")
+                  
         print(f"    -> Max Path Length: {X[i][len_idx]} chars | "
               f"Max Randomness (Entropy): {X[i][entropy_idx]:.2f}")
         if X[i][sensitive_idx] == 1:

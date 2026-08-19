@@ -392,8 +392,64 @@ static int handle_event(void *ctx, void *data, size_t sz) {
             break;
         case TYPE_DUP_REDIRECT:
             printf("\"event\": \"FD_REDIRECT\", \"pid\": %u, \"ppid\": %u, \"comm\": \"%s\", "
-           	   "\"redirected_fd\": %lld, \"socket_fd\": %llu}\n",
-                   e->pid, e->ppid, e->comm, e->retval, e->arg1);
+           	   "\"redirected_fd\": %lld, \"socket_fd\": %llu, \"src_ip\": \"%s\", \"src_port\": %u, "
+                   "\"dest_ip\": \"%s\", \"dest_port\": %u}\n",
+                   e->pid, e->ppid, e->comm, e->retval, e->arg1, src_ip_str, e->src_port, ip_str, e->dest_port);
+            break;
+        case TYPE_TCP_ACCEPT:
+            printf("\"event\": \"NET_ACCEPT\", \"pid\": %u, \"ppid\": %u, \"comm\": \"%s\", "
+                   "\"src_ip\": \"%s\", \"src_port\": %u, \"remote_ip\": \"%s\", \"remote_port\": %u}\n",
+                   e->pid, e->ppid, e->comm, src_ip_str, e->src_port, ip_str, e->dest_port);
+            break;
+        case TYPE_CREDS_CHANGE:
+            printf("\"event\": \"CREDS_CHANGE\", \"pid\": %u, \"ppid\": %u, \"uid\": %u, \"gid\": %u, \"comm\": \"%s\", "
+                   "\"old_uid\": %llu, \"new_uid\": %llu, \"target\": \"%s\"}\n",
+                   e->pid, e->ppid, e->uid, e->gid, e->comm, e->arg2, e->arg1, e->filename);
+            break;
+        case TYPE_PTRACE:
+            printf("\"event\": \"PTRACE\", \"pid\": %u, \"ppid\": %u, \"uid\": %u, \"gid\": %u, \"comm\": \"%s\", "
+                   "\"request\": %llu, \"target_pid\": %lld, \"target\": \"%s\"}\n",
+                   e->pid, e->ppid, e->uid, e->gid, e->comm, e->arg1, e->retval, e->filename);
+            break;
+        case TYPE_MPROTECT_RWX:
+            printf("\"event\": \"MPROTECT_RWX\", \"pid\": %u, \"ppid\": %u, \"uid\": %u, \"gid\": %u, \"comm\": \"%s\", "
+                   "\"addr\": %llu, \"prot\": %llu, \"target\": \"%s\"}\n",
+                   e->pid, e->ppid, e->uid, e->gid, e->comm, e->arg1, e->arg2, e->filename);
+            break;
+        case TYPE_MEMFD_CREATE:
+            printf("\"event\": \"MEMFD_CREATE\", \"pid\": %u, \"ppid\": %u, \"uid\": %u, \"gid\": %u, \"comm\": \"%s\", "
+                   "\"name\": \"%s\", \"flags\": %llu}\n",
+                   e->pid, e->ppid, e->uid, e->gid, e->comm, e->filename, e->arg1);
+            break;
+        case TYPE_UNLINK:
+            printf("\"event\": \"UNLINK\", \"pid\": %u, \"ppid\": %u, \"uid\": %u, \"gid\": %u, \"comm\": \"%s\", "
+                   "\"target\": \"%s\", \"flags\": %llu}\n",
+                   e->pid, e->ppid, e->uid, e->gid, e->comm, e->filename, e->arg1);
+            break;
+        case TYPE_RENAME:
+            printf("\"event\": \"RENAME\", \"pid\": %u, \"ppid\": %u, \"uid\": %u, \"gid\": %u, \"comm\": \"%s\", "
+                   "\"old_path\": \"%s\", \"new_path\": \"%s\", \"flags\": %llu}\n",
+                   e->pid, e->ppid, e->uid, e->gid, e->comm, e->filename, e->extra_str, e->arg1);
+            break;
+        case TYPE_CHMOD:
+            printf("\"event\": \"CHMOD\", \"pid\": %u, \"ppid\": %u, \"uid\": %u, \"gid\": %u, \"comm\": \"%s\", "
+                   "\"target\": \"%s\", \"mode\": %llu}\n",
+                   e->pid, e->ppid, e->uid, e->gid, e->comm, e->filename, e->arg1);
+            break;
+        case TYPE_MODULE_LOAD:
+            printf("\"event\": \"MODULE_LOAD\", \"pid\": %u, \"ppid\": %u, \"uid\": %u, \"gid\": %u, \"comm\": \"%s\", "
+                   "\"module\": \"%s\", \"arg1\": %llu}\n",
+                   e->pid, e->ppid, e->uid, e->gid, e->comm, e->filename, e->arg1);
+            break;
+        case TYPE_MODULE_UNLOAD:
+            printf("\"event\": \"MODULE_UNLOAD\", \"pid\": %u, \"ppid\": %u, \"uid\": %u, \"gid\": %u, \"comm\": \"%s\", "
+                   "\"module_name\": \"%s\", \"flags\": %llu}\n",
+                   e->pid, e->ppid, e->uid, e->gid, e->comm, e->filename, e->arg1);
+            break;
+        case TYPE_RAW_SOCKET:
+            printf("\"event\": \"RAW_SOCKET\", \"pid\": %u, \"ppid\": %u, \"uid\": %u, \"gid\": %u, \"comm\": \"%s\", "
+                   "\"target\": \"%s\", \"family\": %llu, \"protocol\": %llu}\n",
+                   e->pid, e->ppid, e->uid, e->gid, e->comm, e->filename, e->arg1, e->arg2);
             break;
         default:
             printf("\"event\": \"UNKNOWN\"}\n");

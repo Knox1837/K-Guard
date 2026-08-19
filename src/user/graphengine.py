@@ -48,7 +48,18 @@ TYPE_EXIT = 3
 TYPE_OPEN = 4
 TYPE_TCP_CONNECT = 5
 TYPE_TCP_CLOSE = 6
+TYPE_TCP_ACCEPT = 7
 TYPE_DUP_REDIRECT = 8
+TYPE_CREDS_CHANGE = 9
+TYPE_PTRACE = 10
+TYPE_MPROTECT_RWX = 11
+TYPE_MEMFD_CREATE = 12
+TYPE_UNLINK = 13
+TYPE_RENAME = 14
+TYPE_CHMOD = 15
+TYPE_MODULE_LOAD = 16
+TYPE_MODULE_UNLOAD = 17
+TYPE_RAW_SOCKET = 18
 
 last_render_time = time.time()
 node_count_history = []
@@ -184,10 +195,181 @@ try:
                 G.nodes[process_node_id]["security_label"] = "CRITICAL_REVERSE_SHELL_FD_REDIRECT"
                 G.nodes[process_node_id]["redirected_fd"] = event.get("redirected_fd", "")   # which stdio fd (0/1/2)
                 G.nodes[process_node_id]["socket_fd"] = event.get("socket_fd", "")           # which fd held the socket
+                G.nodes[process_node_id]["has_fd_redirect"] = True
+                G.nodes[process_node_id]["security_score"] = G.nodes[process_node_id].get("security_score", 0) + 50
+                touch(process_node_id, ts)
+            
+            # 6. TCP ACCEPT (INBOUND CONNECTION) HANDLING
+            elif type_id == TYPE_TCP_ACCEPT:
+                src_ip = event.get("src_ip")
+                src_port = event.get("src_port")
+                remote_ip = event.get("remote_ip")
+                remote_port = event.get("remote_port")
+                
+                if not G.has_node(process_node_id):
+                    G.add_node(process_node_id, type="process", comm=comm, pid=pid)
+                
+                # Track inbound connections as node attribute
+                G.nodes[process_node_id]["inbound_connections"] = G.nodes[process_node_id].get("inbound_connections", 0) + 1
+                G.nodes[process_node_id]["last_inbound_from"] = f"{remote_ip}:{remote_port}"
+                touch(process_node_id, ts)
+            
+            # 7. CREDENTIAL CHANGE HANDLING (PRIVILEGE ESCALATION)
+            elif type_id == TYPE_CREDS_CHANGE:
+                old_uid = event.get("old_uid", 0)
+                new_uid = event.get("new_uid", 0)
+                
+                if not G.has_node(process_node_id):
+                    G.add_node(process_node_id, type="process", comm=comm, pid=pid)
+                
+                G.nodes[process_node_id]["creds_change_count"] = G.nodes[process_node_id].get("creds_change_count", 0) + 1
+                G.nodes[process_node_id]["last_uid_change"] = f"{old_uid}->{new_uid}"
+                
+                # Flag privilege escalation to root
+                if new_uid == 0 and old_uid != 0:
+                    G.nodes[process_node_id]["escalated_to_root"] = True
+                    G.nodes[process_node_id]["security_score"] = G.nodes[process_node_id].get("security_score", 0) + 30
+                    if not G.nodes[process_node_id].get("security_label"):
+                        G.nodes[process_node_id]["security_label"] = "PRIVILEGE_ESCALATION"
+                
+                touch(process_node_id, ts)
+            
+            # 8. PTRACE HANDLING (PROCESS INJECTION / DEBUGGING)
+            elif type_id == TYPE_PTRACE:
+                request = event.get("request", 0)
+                target_pid = event.get("target_pid", 0)
+                
+                if not G.has_node(process_node_id):
+                    G.add_node(process_node_id, type="process", comm=comm, pid=pid)
+                
+                G.nodes[process_node_id]["ptrace_count"] = G.nodes[process_node_id].get("ptrace_count", 0) + 1
+                G.nodes[process_node_id]["has_ptrace"] = True
+                G.nodes[process_node_id]["last_ptrace_target"] = target_pid
+                G.nodes[process_node_id]["security_score"] = G.nodes[process_node_id].get("security_score", 0) + 15
+                touch(process_node_id, ts)
+            
+            # 9. MPROTECT RWX HANDLING (SHELLCODE PATTERN)
+            elif type_id == TYPE_MPROTECT_RWX:
+                addr = event.get("addr", 0)
+                prot = event.get("prot", 0)
+                
+                if not G.has_node(process_node_id):
+                    G.add_node(process_node_id, type="process", comm=comm, pid=pid)
+                
+                G.nodes[process_node_id]["mprotect_rwx_count"] = G.nodes[process_node_id].get("mprotect_rwx_count", 0) + 1
+                G.nodes[process_node_id]["has_rwx_mprotect"] = True
+                G.nodes[process_node_id]["security_score"] = G.nodes[process_node_id].get("security_score", 0) + 20
+                touch(process_node_id, ts)
+            
+            # 10. MEMFD_CREATE HANDLING (FILELESS EXECUTION)
+            elif type_id == TYPE_MEMFD_CREATE:
+                memfd_name = event.get("name", "")
+                flags = event.get("flags", 0)
+                
+                if not G.has_node(process_node_id):
+                    G.add_node(process_node_id, type="process", comm=comm, pid=pid)
+                
+                G.nodes[process_node_id]["memfd_count"] = G.nodes[process_node_id].get("memfd_count", 0) + 1
+                G.nodes[process_node_id]["has_memfd_create"] = True
+                G.nodes[process_node_id]["last_memfd_name"] = memfd_name
+                G.nodes[process_node_id]["security_score"] = G.nodes[process_node_id].get("security_score", 0) + 25
+                touch(process_node_id, ts)
+            
+            # 11. UNLINK HANDLING (FILE DELETION / ANTI-FORENSICS)
+            elif type_id == TYPE_UNLINK:
+                target = event.get("target", "")
+                
+                if not G.has_node(process_node_id):
+                    G.add_node(process_node_id, type="process", comm=comm, pid=pid)
+                
+                G.nodes[process_node_id]["unlink_count"] = G.nodes[process_node_id].get("unlink_count", 0) + 1
+                G.nodes[process_node_id]["has_file_deletion"] = True
+                
+                # Higher score for deleting sensitive files
+                if any(kw in target for kw in ["log", "history", "auth", ".bash"]):
+                    G.nodes[process_node_id]["security_score"] = G.nodes[process_node_id].get("security_score", 0) + 10
+                else:
+                    G.nodes[process_node_id]["security_score"] = G.nodes[process_node_id].get("security_score", 0) + 3
+                
+                touch(process_node_id, ts)
+            
+            # 12. RENAME HANDLING (FILE MASQUERADING)
+            elif type_id == TYPE_RENAME:
+                old_path = event.get("old_path", "")
+                new_path = event.get("new_path", "")
+                
+                if not G.has_node(process_node_id):
+                    G.add_node(process_node_id, type="process", comm=comm, pid=pid)
+                
+                G.nodes[process_node_id]["rename_count"] = G.nodes[process_node_id].get("rename_count", 0) + 1
+                G.nodes[process_node_id]["has_file_rename"] = True
+                G.nodes[process_node_id]["last_rename"] = f"{old_path}->{new_path}"
+                G.nodes[process_node_id]["security_score"] = G.nodes[process_node_id].get("security_score", 0) + 5
+                touch(process_node_id, ts)
+            
+            # 13. CHMOD HANDLING (PERMISSION TAMPERING / SETUID BACKDOORS)
+            elif type_id == TYPE_CHMOD:
+                target = event.get("target", "")
+                mode = event.get("mode", 0)
+                
+                if not G.has_node(process_node_id):
+                    G.add_node(process_node_id, type="process", comm=comm, pid=pid)
+                
+                G.nodes[process_node_id]["chmod_count"] = G.nodes[process_node_id].get("chmod_count", 0) + 1
+                G.nodes[process_node_id]["has_chmod"] = True
+                
+                # Check for setuid bit (0o4000)
+                if mode & 0o4000:
+                    G.nodes[process_node_id]["has_setuid_chmod"] = True
+                    G.nodes[process_node_id]["security_score"] = G.nodes[process_node_id].get("security_score", 0) + 20
+                else:
+                    G.nodes[process_node_id]["security_score"] = G.nodes[process_node_id].get("security_score", 0) + 3
+                
+                touch(process_node_id, ts)
+            
+            # 14. MODULE LOAD HANDLING (ROOTKIT TERRITORY)
+            elif type_id == TYPE_MODULE_LOAD:
+                module = event.get("module", "")
+                
+                if not G.has_node(process_node_id):
+                    G.add_node(process_node_id, type="process", comm=comm, pid=pid)
+                
+                G.nodes[process_node_id]["module_load_count"] = G.nodes[process_node_id].get("module_load_count", 0) + 1
+                G.nodes[process_node_id]["has_module_load"] = True
+                G.nodes[process_node_id]["last_module_loaded"] = module
+                G.nodes[process_node_id]["security_score"] = G.nodes[process_node_id].get("security_score", 0) + 35
+                touch(process_node_id, ts)
+            
+            # 15. MODULE UNLOAD HANDLING
+            elif type_id == TYPE_MODULE_UNLOAD:
+                module_name = event.get("module_name", "")
+                
+                if not G.has_node(process_node_id):
+                    G.add_node(process_node_id, type="process", comm=comm, pid=pid)
+                
+                G.nodes[process_node_id]["module_unload_count"] = G.nodes[process_node_id].get("module_unload_count", 0) + 1
+                G.nodes[process_node_id]["has_module_unload"] = True
+                G.nodes[process_node_id]["last_module_unloaded"] = module_name
+                G.nodes[process_node_id]["security_score"] = G.nodes[process_node_id].get("security_score", 0) + 15
+                touch(process_node_id, ts)
+            
+            # 16. RAW SOCKET HANDLING (PACKET SNIFFING / CRAFTING)
+            elif type_id == TYPE_RAW_SOCKET:
+                family = event.get("family", 0)
+                protocol = event.get("protocol", 0)
+                
+                if not G.has_node(process_node_id):
+                    G.add_node(process_node_id, type="process", comm=comm, pid=pid)
+                
+                G.nodes[process_node_id]["raw_socket_count"] = G.nodes[process_node_id].get("raw_socket_count", 0) + 1
+                G.nodes[process_node_id]["has_raw_socket"] = True
+                G.nodes[process_node_id]["raw_socket_family"] = family
+                G.nodes[process_node_id]["raw_socket_protocol"] = protocol
+                G.nodes[process_node_id]["security_score"] = G.nodes[process_node_id].get("security_score", 0) + 25
                 touch(process_node_id, ts)
                                 
  
-            # 5. EXIT HANDLING
+            # 17. EXIT HANDLING
             elif type_id == TYPE_EXIT:
                 if G.has_node(process_node_id):
                     G.nodes[process_node_id]["status"] = "terminated"

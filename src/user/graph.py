@@ -145,7 +145,7 @@ def export_interactive_graph(
         html = f.read()
     
     if "</body>" in html:
-            html = html.replace("</body>", telemetry_script + legend_html + "</body>")
+            html = html.replace("</body>", legend_html + "</body>")
             with open(html_path, "w", encoding="utf-8") as f:
                 f.write(html)
     

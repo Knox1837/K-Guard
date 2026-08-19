@@ -202,6 +202,31 @@
         .event-entry.file {
             color: #90ee90;
         }
+        
+        /* Tooltip styles for vis.js nodes */
+        .kg-tooltip {
+            background: #2a2a2a;
+            border: 1px solid #4a4a4a;
+            border-radius: 6px;
+            padding: 10px 12px;
+            font-size: 12px;
+            color: #eee;
+            min-width: 160px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+        }
+        .kg-tooltip-header {
+            font-weight: 700;
+            color: #00ff88;
+            margin-bottom: 6px;
+            padding-bottom: 4px;
+            border-bottom: 1px solid #3a3a3a;
+        }
+        .kg-tooltip-row { display: flex; justify-content: space-between; gap: 12px; margin: 2px 0; }
+        .kg-tooltip-label { color: #888; }
+        .kg-tooltip-value { color: #fff; font-weight: 600; }
+        .kg-tooltip-score { color: #ff4444; font-weight: 700; margin: 6px 0 4px; }
+        .kg-tooltip-flags { display: flex; flex-direction: column; gap: 2px; font-size: 11px; }
+
     </style>
 </head>
 <body>
@@ -306,9 +331,10 @@
         // basically for free via vis-network's hierarchical mode (one
         // topological pass), instead of paying for a continuous n-body
         // physics simulation across the whole graph every frame. Physics
-        // is fully OFF; "liveliness" comes from a lightweight pop-in
-        // animation on newly inserted nodes only (see popInNode below),
-        // not from moving the rest of the graph.
+        // is run once to settle real data (see armStabilizationFreeze),
+        // then frozen; "liveliness" after that comes from a lightweight
+        // pop-in animation on newly inserted nodes only (see popInNode
+        // below), not from moving the rest of the graph.
         const options = {
             layout: {
                 improvedLayout: true,
@@ -379,12 +405,30 @@
             }
         };
         const network = new vis.Network(container, data, options);
-        // Physics: stabilize once, then freeze. Thaw briefly on new nodes. 
+
+        // Physics: stabilize once real data is present, then freeze.
+        // Thaw briefly on new nodes / cluster expansion.
+        //
+        // FIX: previously this was armed via a `network.once(...)` call
+        // placed immediately after network creation, which fired against
+        // the still-EMPTY DataSets (stabilizing an empty graph is
+        // trivial and finishes in ~1-2s), permanently disabling physics
+        // before the real graph data ever arrived via the socket. That
+        // left every node sitting at raw, frequently-overlapping/
+        // off-screen `improvedLayout` seed positions. Instead we arm the
+        // freeze explicitly, AFTER real data has been loaded (see the
+        // 'initial_state' / 'initial_state_chunk' handlers below), and
+        // re-run it every time a fresh full load happens.
         let physicsFrozen = false;
-        network.once('stabilizationIterationsDone', () => {
-            network.setOptions({ physics: { enabled: false } });
-            physicsFrozen = true;
-        });
+        function armStabilizationFreeze() {
+            physicsFrozen = false;
+            network.setOptions({ physics: { enabled: true } });
+            network.once('stabilizationIterationsDone', () => {
+                network.setOptions({ physics: { enabled: false } });
+                physicsFrozen = true;
+            });
+            network.stabilize(150);
+        }
 
         let thawTimeout = null;
         function thawPhysicsBriefly() {
@@ -412,69 +456,47 @@
         });
         
         // Helper functions
+        function getNodeShape(nodeData) {
+            switch (nodeData.type) {
+                case 'process':        return 'dot';
+                case 'file_binary':    return 'square';   // EXEC target
+                case 'file_data':      return 'square';   // sensitive file OPEN
+                case 'network_socket': return 'diamond';
+                default:                return 'dot';
+            }
+        }
+
         function getNodeColor(nodeData) {
             const type = nodeData.type;
-            const score = parseInt(nodeData.security_score) || 0;
-            
-            // File nodes
             if (type === 'file_binary') {
                 return {
-                    background: '#FF8C00',
-                    border: '#CC7000',
+                    background: '#FF8C00', border: '#CC7000',
                     highlight: { background: '#FFB347', border: '#FF8C00' },
                     hover: { background: '#FFB347', border: '#FF8C00' }
                 };
             }
             if (type === 'file_data') {
+                // aqua, per request — sensitive file access
                 return {
-                    background: '#90EE90',
-                    border: '#32CD32',
-                    highlight: { background: '#98FB98', border: '#00FF00' },
-                    hover: { background: '#98FB98', border: '#00FF00' }
+                    background: '#00FFFF', border: '#00CCCC',
+                    highlight: { background: '#7FFFFF', border: '#00FFFF' },
+                    hover: { background: '#7FFFFF', border: '#00FFFF' }
                 };
             }
-            
-            // Network nodes
             if (type === 'network_socket') {
                 return {
-                    background: '#87CEEB',
-                    border: '#4682B4',
+                    background: '#87CEEB', border: '#4682B4',
                     highlight: { background: '#B0E0E6', border: '#1E90FF' },
                     hover: { background: '#B0E0E6', border: '#1E90FF' }
                 };
             }
-            
-            // Process nodes - color by security score with gradient
-            if (score === 0) {
-                return {
-                    background: '#97C2FC',
-                    border: '#2B7CE9',
-                    highlight: { background: '#D2E5FF', border: '#2B7CE9' },
-                    hover: { background: '#D2E5FF', border: '#2B7CE9' }
-                };
-            }
-            if (score < 30) {
-                return {
-                    background: '#FFD700',
-                    border: '#DAA520',
-                    highlight: { background: '#FFED4E', border: '#FFD700' },
-                    hover: { background: '#FFED4E', border: '#FFD700' }
-                };
-            }
-            if (score < 100) {
-                return {
-                    background: '#FF8C00',
-                    border: '#FF4500',
-                    highlight: { background: '#FFA500', border: '#FF4500' },
-                    hover: { background: '#FFA500', border: '#FF4500' }
-                };
-            }
-            // High risk
+            // process nodes — color by security score
+            const score = parseInt(nodeData.security_score) || 0;
+            const c = getScoreColor(score);
             return {
-                background: '#FF0000',
-                border: '#8B0000',
-                highlight: { background: '#FF4444', border: '#8B0000' },
-                hover: { background: '#FF4444', border: '#8B0000' }
+                background: c.bg, border: c.border,
+                highlight: { background: c.bg, border: '#00ff88' },
+                hover: { background: c.bg, border: '#00ff88' }
             };
         }
         
@@ -542,37 +564,68 @@
             
             return String(nodeData.id).substring(0, 15);
         }
-        
         function getNodeTitle(nodeData) {
             const type = nodeData.type;
-            let title = `<b>${type}</b><br>`;
-            
+            const wrap = document.createElement('div');
+            wrap.className = 'kg-tooltip';
+
+            const header = document.createElement('div');
+            header.className = 'kg-tooltip-header';
+            header.textContent = type === 'process' ? (nodeData.comm || 'process') : type.replace('_', ' ');
+            wrap.appendChild(header);
+
+            function row(label, value) {
+                const r = document.createElement('div');
+                r.className = 'kg-tooltip-row';
+                const l = document.createElement('span');
+                l.className = 'kg-tooltip-label';
+                l.textContent = label;
+                const v = document.createElement('span');
+                v.className = 'kg-tooltip-value';
+                v.textContent = value;
+                r.appendChild(l); r.appendChild(v);
+                wrap.appendChild(r);
+            }
+
             if (type === 'process') {
-                title += `Command: ${nodeData.comm || 'N/A'}<br>`;
-                title += `PID: ${nodeData.pid || 'N/A'}<br>`;
-                
+                row('PID', nodeData.pid || 'N/A');
                 const score = parseInt(nodeData.security_score) || 0;
                 if (score > 0) {
-                    title += `<br><b style="color: #ff4444;">Security Score: ${score}</b><br>`;
-                    
-                    if (nodeData.has_fd_redirect) title += '🚨 FD Redirect (Reverse Shell)<br>';
-                    if (nodeData.has_memfd_create) title += `💾 Memfd Create (${nodeData.memfd_count}x)<br>`;
-                    if (nodeData.has_raw_socket) title += '📡 Raw Socket<br>';
-                    if (nodeData.has_rwx_mprotect) title += `⚡ RWX Mprotect (${nodeData.mprotect_rwx_count}x)<br>`;
-                    if (nodeData.has_ptrace) title += `🔍 Ptrace (${nodeData.ptrace_count}x)<br>`;
-                    if (nodeData.escalated_to_root) title += '👑 Privilege Escalation to Root<br>';
-                    if (nodeData.has_file_deletion) title += `🗑️ File Deletion (${nodeData.unlink_count}x)<br>`;
-                    if (nodeData.has_setuid_chmod) title += '🔓 Setuid Chmod<br>';
-                    if (nodeData.has_module_load) title += `🔌 Module Load (${nodeData.module_load_count}x)<br>`;
+                    const scoreRow = document.createElement('div');
+                    scoreRow.className = 'kg-tooltip-score';
+                    scoreRow.textContent = `Security Score: ${score}`;
+                    wrap.appendChild(scoreRow);
+
+                    const flags = document.createElement('div');
+                    flags.className = 'kg-tooltip-flags';
+                    const items = [
+                        [nodeData.has_fd_redirect, '🚨 FD Redirect (Reverse Shell)'],
+                        [nodeData.has_memfd_create, `💾 Memfd Create (${nodeData.memfd_count}x)`],
+                        [nodeData.has_raw_socket, '📡 Raw Socket'],
+                        [nodeData.has_rwx_mprotect, `⚡ RWX Mprotect (${nodeData.mprotect_rwx_count}x)`],
+                        [nodeData.has_ptrace, `🔍 Ptrace (${nodeData.ptrace_count}x)`],
+                        [nodeData.escalated_to_root, '👑 Privilege Escalation to Root'],
+                        [nodeData.has_file_deletion, `🗑️ File Deletion (${nodeData.unlink_count}x)`],
+                        [nodeData.has_setuid_chmod, '🔓 Setuid Chmod'],
+                        [nodeData.has_module_load, `🔌 Module Load (${nodeData.module_load_count}x)`]
+                    ];
+                    items.forEach(([cond, text]) => {
+                        if (!cond) return;
+                        const f = document.createElement('div');
+                        f.textContent = text;
+                        flags.appendChild(f);
+                    });
+                    wrap.appendChild(flags);
                 }
             } else if (type === 'network_socket') {
-                title += `IP: ${nodeData.ip || 'N/A'}<br>Port: ${nodeData.port || 'N/A'}`;
+                row('IP', nodeData.ip || 'N/A');
+                row('Port', nodeData.port || 'N/A');
             } else {
-                title += `${nodeData.id || 'N/A'}`;
+                row('Path', nodeData.id || 'N/A');
             }
-            
-            return title;
-        }
+
+            return wrap;
+        } 
         
         // Lightweight "pop-in" for new nodes (liveliness without physics) 
         // Instead of running a continuous force simulation over the whole
@@ -612,24 +665,30 @@
                 if (updateBatch.nodes.length > 0) {
                     const nodesToAdd = [];
                     const nodesToUpdate = [];
-                    
+                    const seenNodesInBatch = new Map(); // id -> nodeObj, last write in batch wins
+
                     updateBatch.nodes.forEach(nodeData => {
+                        const merged = { ...nodeData.data, id: nodeData.id };
                         const nodeObj = {
                             id: nodeData.id,
-                            label: getNodeLabel(nodeData.data),
-                            color: getNodeColor(nodeData.data),
-                            size: getNodeSize(nodeData.data),
-                            title: getNodeTitle(nodeData.data),
+                            label: getNodeLabel(merged),
+                            color: getNodeColor(merged),
+                            shape: getNodeShape(merged),
+                            size: getNodeSize(merged),
+                            title: getNodeTitle(merged),
                             ...nodeData.data
                         };
-                        
-                        if (nodes.get(nodeData.id)) {
+                        seenNodesInBatch.set(nodeData.id, nodeObj); // collapses same-id dupes within this batch
+                    });
+
+                    seenNodesInBatch.forEach((nodeObj, id) => {
+                        if (nodes.get(id)) {
                             nodesToUpdate.push(nodeObj);
                         } else {
                             nodesToAdd.push(nodeObj);
                         }
                     });
-                    
+
                     if (nodesToAdd.length > 0) {
                         nodes.add(nodesToAdd);
                         thawPhysicsBriefly();
@@ -643,12 +702,13 @@
                     }
                     if (nodesToUpdate.length > 0) nodes.update(nodesToUpdate);
                 }
-                
+
                 // Process all edges in one operation
                 if (updateBatch.edges.length > 0) {
                     const edgesToAdd = [];
                     const edgesToUpdate = [];
-                    
+                    const seenEdgesInBatch = new Map(); // id -> edgeObj, last write in batch wins
+
                     updateBatch.edges.forEach(edgeData => {
                         const edgeId = `${edgeData.source}-${edgeData.target}`;
                         const edgeObj = {
@@ -658,18 +718,21 @@
                             title: edgeData.data.relation || '',
                             ...edgeData.data
                         };
-                        
-                        if (edges.get(edgeId)) {
+                        seenEdgesInBatch.set(edgeId, edgeObj); // collapses same-id dupes within this batch
+                    });
+
+                    seenEdgesInBatch.forEach((edgeObj, id) => {
+                        if (edges.get(id)) {
                             edgesToUpdate.push(edgeObj);
                         } else {
                             edgesToAdd.push(edgeObj);
                         }
                     });
-                    
+
                     if (edgesToAdd.length > 0) edges.add(edgesToAdd);
                     if (edgesToUpdate.length > 0) edges.update(edgesToUpdate);
                 }
-                
+
                 // Clear batch
                 updateBatch = { nodes: [], edges: [], timestamp: Date.now() };
             }
@@ -763,14 +826,15 @@
                 const nodesToAdd = [];
                 data.nodes.forEach(node => {
                     try {
-                        const nodeData = node.data;
+                        const merged = { ...node.data, id: node.id };
                         nodesToAdd.push({
                             id: node.id,
-                            label: getNodeLabel(nodeData),
-                            color: getNodeColor(nodeData),
-                            size: getNodeSize(nodeData),
-                            title: getNodeTitle(nodeData),
-                            ...nodeData
+                            label: getNodeLabel(merged),     // was: getNodeLabel(nodeData)
+                            color: getNodeColor(merged),
+                            shape: getNodeShape(merged),
+                            size: getNodeSize(merged),
+                            title: getNodeTitle(merged),     // was: getNodeTitle(nodeData)
+                            ...node.data
                         });
                     } catch (e) {
                         console.error('Error processing node:', node, e);
@@ -800,6 +864,12 @@
                 
                 logEvent(`✓ Loaded ${data.nodes.length} nodes, ${data.edges.length} edges`, 'normal');
                 
+                // FIX: physics must be (re-)armed here, AFTER the real data
+                // has been added — arming it at network-creation time meant
+                // it froze against an empty graph before this data arrived,
+                // leaving every node at its raw, unsettled seed position.
+                armStabilizationFreeze();
+                
                 // Auto-fit after initial load
                 setTimeout(() => network.fit(), 500);
             } catch (e) {
@@ -818,6 +888,9 @@
                 
                 if (data.is_last) {
                     logEvent(`✓ Loaded large graph in chunks`, 'normal');
+                    // FIX: same reasoning as initial_state above, only arm
+                    // the stabilization freeze once all chunks are in.
+                    armStabilizationFreeze();
                     setTimeout(() => network.fit(), 500);
                 }
             } catch (e) {
@@ -967,6 +1040,7 @@
             network.stabilize(150);
             network.once('stabilizationIterationsDone', () => {
                 network.setOptions({ physics: { enabled: false } });
+                physicsFrozen = true;
                 network.fit({ animation: { duration: 600, easingFunction: 'easeInOutQuad' } });
                 btn.classList.remove('active');
                 btn.textContent = '🔄 Re-flow';
@@ -984,6 +1058,14 @@
         // collapsed cluster to expand it back.
         const CLUSTER_TRIGGER_NODE_COUNT = 400;
         let clusteringInFlight = false;
+        
+        // Score -> color, extracted so both individual nodes AND clusters can share it
+        function getScoreColor(score) {
+            if (score === 0)   return { bg: '#97C2FC', border: '#2B7CE9' };
+            if (score < 30)    return { bg: '#FFD700', border: '#DAA520' };
+            if (score < 100)   return { bg: '#FF8C00', border: '#FF4500' };
+            return                    { bg: '#FF0000', border: '#8B0000' };
+        }
 
         function runIdleClustering() {
             if (clusteringInFlight) return;
@@ -993,12 +1075,34 @@
                 network.clusterOutliers({
                     clusterNodeProperties: {
                         shape: 'hexagon',
-                        color: { background: '#3a3a3a', border: '#666666' },
-                        font: { size: lodLabelsHidden ? 0 : 12, color: '#cccccc' },
-                        borderWidth: 2
+                        borderWidth: 2,
+                        font: { size: lodLabelsHidden ? 0 : 12, color: '#ffffff' }
                     },
                     processProperties: (clusterOptions, childNodes) => {
-                        clusterOptions.label = `+${childNodes.length}`;
+                        const scores = childNodes.map(n => parseInt(n.security_score) || 0);
+                        const avgScore = scores.reduce((a, b) => a + b, 0) / (scores.length || 1);
+                        const maxScore = Math.max(0, ...scores);
+                        const hasCritical = maxScore >= 100;
+
+                        // Fill reflects the AVERAGE risk of everything hidden inside
+                        const avgColor = getScoreColor(avgScore);
+                        clusterOptions.color = {
+                            background: avgColor.bg,
+                            border: hasCritical ? '#FF0000' : avgColor.border,
+                            highlight: { background: avgColor.bg, border: '#00ff88' }
+                        };
+                        // A critical node hiding inside still needs to stand out
+                        // even though the fill is only an average — thicker red ring.
+                        if (hasCritical) {
+                            clusterOptions.borderWidth = 4;
+                            clusterOptions.shapeProperties = { borderDashes: false };
+                        }
+                        clusterOptions.label = hasCritical
+                            ? `⚠ +${childNodes.length}`
+                            : `+${childNodes.length}`;
+                        clusterOptions.title = hasCritical
+                            ? `Contains a CRITICAL node (score ${maxScore}). Avg score: ${avgScore.toFixed(0)}. Double-click to expand.`
+                            : `${childNodes.length} nodes, avg score ${avgScore.toFixed(0)}. Double-click to expand.`;
                         return clusterOptions;
                     }
                 });
@@ -1009,13 +1113,44 @@
             }
         }
 
-        // Expand a cluster back into its individual nodes on double-click
+        // Expand a cluster back into its individual nodes on double-click.
+        //
+        // FIX: openCluster() with no releaseFunction restores each child
+        // node to its stale STORED pre-cluster x/y. Because physics used
+        // to freeze against an empty graph (see armStabilizationFreeze
+        // above), those stored positions were often degenerate/coincident
+        // — every released child landed exactly on top of the cluster's
+        // position. The edges still rendered fanning outward correctly
+        // (they're drawn to wherever the node id is), but the individual
+        // child dots were all stacked on one point, so nothing looked
+        // like it was there. The releaseFunction below explicitly fans
+        // released children out in a circle around the cluster's current
+        // on-screen position instead of trusting the stale stored coords,
+        // and thawPhysicsBriefly() lets forceAtlas2 clean up any residual
+        // overlap right after.
         network.on('doubleClick', (params) => {
             if (params.nodes.length !== 1) return;
             const nodeId = params.nodes[0];
-            if (network.isCluster(nodeId)) {
-                network.openCluster(nodeId);
-            }
+            if (!network.isCluster(nodeId)) return;
+
+            network.openCluster(nodeId, {
+                releaseFunction: (clusterPosition, containedNodesPositions) => {
+                    const ids = Object.keys(containedNodesPositions);
+                    const n = ids.length;
+                    const radius = Math.max(60, n * 14); // scale radius with child count
+                    const newPositions = {};
+                    ids.forEach((id, i) => {
+                        const angle = (2 * Math.PI * i) / n;
+                        newPositions[id] = {
+                            x: clusterPosition.x + radius * Math.cos(angle),
+                            y: clusterPosition.y + radius * Math.sin(angle)
+                        };
+                    });
+                    return newPositions;
+                }
+            });
+
+            thawPhysicsBriefly(); // let forceAtlas2 settle any residual overlap
         });
 
         // Re-run periodically rather than on every update — clustering the

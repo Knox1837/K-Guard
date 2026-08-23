@@ -192,9 +192,11 @@ try:
                     continue
                 if not G.has_node(process_node_id):
                     G.add_node(process_node_id, type="process", comm=comm, pid=pid)
-                G.nodes[process_node_id]["security_label"] = "CRITICAL_REVERSE_SHELL_FD_REDIRECT"
-                G.nodes[process_node_id]["redirected_fd"] = event.get("redirected_fd", "")   # which stdio fd (0/1/2)
-                G.nodes[process_node_id]["socket_fd"] = event.get("socket_fd", "")           # which fd held the socket
+                G.nodes[process_node_id]["security_label"] = "CRITICAL_REVERSE_SHELL_FD_REDIRECT"   
+                G.nodes[process_node_id]["redirected_fd"] = event.get("redirected_fd", "") # which stdio fd (0/1/2)
+                G.nodes[process_node_id]["socket_fd"] = event.get("socket_fd", "")# which fd held the socket
+                G.nodes[process_node_id]["redirect_dest_ip"] = event.get("dest_ip", "")
+                G.nodes[process_node_id]["redirect_dest_port"] = event.get("dest_port", "")
                 G.nodes[process_node_id]["has_fd_redirect"] = True
                 G.nodes[process_node_id]["security_score"] = G.nodes[process_node_id].get("security_score", 0) + 50
                 touch(process_node_id, ts)

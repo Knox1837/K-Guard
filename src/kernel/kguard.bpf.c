@@ -37,6 +37,8 @@ char _license[] SEC("license") = "GPL";
 #define SOCK_TYPE_MASK_VAL 0xFF
 #define S_IFMT_VAL         0170000
 #define S_IFSOCK_VAL       0140000
+#define AF_INET_VAL        2   // socket address family: IPv4
+#define AF_INET6_VAL       10  // socket address family: IPv6 (AF_UNIX is 1)
 
 // To holde socket data
 struct socket_stats {
@@ -522,6 +524,12 @@ static __always_inline int handle_dup_redirect(int oldfd, int newfd) {
     struct file *f = lookup_fd_file(task, (unsigned int)oldfd);
     if (!file_is_socket(f)) return 0;
 
+    struct sock *sk = sock_from_file(f);
+    if (!sk) return 0;
+
+    unsigned short family = BPF_CORE_READ(sk, __sk_common.skc_family);
+    if (family != AF_INET_VAL && family != AF_INET6_VAL) return 0;
+
     struct event_t *e = bpf_ringbuf_reserve(&rb, sizeof(*e), 0);
     if (!e) return 0;
 
@@ -529,13 +537,10 @@ static __always_inline int handle_dup_redirect(int oldfd, int newfd) {
     e->retval = newfd;               // which stdio fd (0/1/2) got overwritten
     e->arg1 = (unsigned long long)oldfd; // which fd held the socket
 
-    struct sock *sk = sock_from_file(f);
-    if (sk) {
-        e->dest_ip   = BPF_CORE_READ(sk, __sk_common.skc_daddr);
-        e->dest_port = __builtin_bswap16(BPF_CORE_READ(sk, __sk_common.skc_dport));
-        e->src_ip    = BPF_CORE_READ(sk, __sk_common.skc_rcv_saddr);
-        e->src_port  = BPF_CORE_READ(sk, __sk_common.skc_num);
-    }
+    e->dest_ip   = BPF_CORE_READ(sk, __sk_common.skc_daddr);
+    e->dest_port = __builtin_bswap16(BPF_CORE_READ(sk, __sk_common.skc_dport));
+    e->src_ip    = BPF_CORE_READ(sk, __sk_common.skc_rcv_saddr);
+    e->src_port  = BPF_CORE_READ(sk, __sk_common.skc_num);
 
     bpf_snprintf(e->filename, sizeof(e->filename), "FD redirect: socket -> stdio", NULL, 0);
     bpf_ringbuf_submit(e, 0);

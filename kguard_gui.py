@@ -81,7 +81,7 @@ class KGuardGUI:
         bar.pack_propagate(False)
         tk.Label(bar, text="⬡  K-Guard", bg=PANEL, fg=ACCENT,
                  font=FONT_TITLE).pack(side=tk.LEFT, padx=16, pady=12)
-        tk.Label(bar, text="eBPF  ·  Causal Provenance  ·  Isolation Forest",
+        tk.Label(bar, text="eBPF  ·  Causal Provenance  ·  ML Ensemble (IF + LOF + DBSCAN)",
                  bg=PANEL, fg=TEXT_DIM, font=FONT_UI).pack(side=tk.LEFT, padx=4)
         self._status_dot = tk.Label(bar, text="●", bg=PANEL, fg=TEXT_DIM, font=("", 14))
         self._status_dot.pack(side=tk.RIGHT, padx=(0, 12))
@@ -457,7 +457,7 @@ class KGuardGUI:
             return
 
         self._clear_log(self._ml_log)
-        self._log(self._ml_log, "Running Isolation Forest anomaly detector...", "heading")
+        self._log(self._ml_log, "Running ML ensemble anomaly detector (IsolationForest + LOF + DBSCAN)...", "heading")
         self._btn_ml.configure(state=tk.DISABLED, text="⚙  Running…")
         self._set_status("Analyzing", ACCENT)
 

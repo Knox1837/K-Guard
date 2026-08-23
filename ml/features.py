@@ -144,7 +144,7 @@ def extract_features(G: nx.DiGraph) -> Tuple[np.ndarray, List, List[str]]:
         send_recv_ratio = (
             net_stats["total_sent"] / net_stats["total_recv"]
             if net_stats["total_recv"] > 0
-            else (999.0 if net_stats["total_sent"] > 0 else 0.0)
+            else (np.log1p(net_stats["total_sent"]) if net_stats["total_sent"] > 0 else 0.0)
         )
 
         sensitive_correlated = _sensitive_read_then_connect(G, node)

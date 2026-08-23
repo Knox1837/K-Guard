@@ -68,11 +68,20 @@ def verify_hidden_pid(pid, initial_kernel_pids):
         return "CLEARED_RACE"
 
     # 3. Handle thread-group validation
-    # Check if this PID is actually a sub-thread of an active process
+    # Check if this PID is actually a sub-thread of a DIFFERENT active process.
+    # NOTE (fix): a process's own main thread always has t.id == p.pid, since
+    # that's just how Linux thread-group leaders work. Checking pid against
+    # p.threads() for the process whose own pid *is* pid trivially matches
+    # every single-threaded process against itself, which previously caused
+    # real hidden processes to be misclassified as STUCK_MAP_ENTRY instead of
+    # ROOTKIT. Skipping p.pid == pid makes this only match genuine sub-threads
+    # belonging to some other process's thread group.
     is_sub_thread = False
     try:
         # Check if the ID is tracked anywhere within active process thread charts
         for p in psutil.process_iter(['pid']):
+            if p.pid == pid:
+                continue
             try:
                 # Scan the task IDs of the process
                 if pid in [t.id for t in p.threads()]:

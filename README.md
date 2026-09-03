@@ -176,3 +176,20 @@ and has a small built-in self-test:
 ```bash
 python3 src/user/intent_validator.py
 ```
+
+### Benchmark the validation backends
+
+The labeled intent-aware benchmark lives under `benchmarks/intent_aware/`.
+It compares the default keyword rule against the TF-IDF backend and the
+optional local embedding backend, then writes a Markdown/JSON report plus
+calibrated backend configs.
+
+```bash
+python3 benchmarks/intent_aware/run_benchmark.py
+```
+
+The benchmark corpus is stored in `benchmarks/intent_aware/dataset.json`.
+The current run emits its report to `benchmarks/intent_aware/results/` and
+persists backend thresholds under `benchmarks/intent_aware/artifacts/`.
+`sentence-transformers` is only needed if you want the embedding backend
+to run; the keyword backend remains the zero-config default.

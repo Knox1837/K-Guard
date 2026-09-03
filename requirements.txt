@@ -6,3 +6,4 @@ python-igraph>=1.0.0
 flask>=2.3.0
 flask-socketio>=5.3.0
 python-socketio>=5.9.0
+sentence-transformers>=6.0.0

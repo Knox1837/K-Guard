@@ -1,0 +1,7 @@
+{
+  "backend": "tfidf",
+  "embedding_model_name": "sentence-transformers/all-MiniLM-L6-v2",
+  "source": "benchmark",
+  "tfidf_vectorizer_path": "/home/ashish/K-Guard/benchmarks/intent_aware/artifacts/tfidf_vectorizer.pkl",
+  "threshold": 0.018758470330957885
+}

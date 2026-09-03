@@ -22,3 +22,7 @@ output/
 ml/models/*
 #save the best model for deployment
 !ml/models/baseline_model.joblib 
+
+# Intenshim
+*.pkl
+benchmarks/intent_aware/results/intent_aware_benchmark_results.json

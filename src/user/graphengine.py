@@ -6,6 +6,7 @@ from pathlib import Path
 import networkx as nx
 from pyvis.network import Network
 from graph import NODE_COUNT_HISTORY_FILE, export_interactive_graph
+from intent_validator import validate_open_event
 
 BASE_DIR = Path(__file__).resolve().parents[2]
 OUTPUT_DIR = BASE_DIR / "output"
@@ -71,6 +72,11 @@ PRUNE_INTERVAL_SEC = 60            # how often (real seconds) we run a prune pas
 node_last_seen = {}      # node_id -> latest timestamp_ns that touched it
 latest_event_ts = 0      # the newest timestamp_ns observed from any event so far
 last_prune_time = time.time()
+
+# Section 3.6.3: PIDs that triggered INTENT_VIOLATION; the design says to add them to the KDL's kdl_active map immediately, 
+# but the KDL itself (Section 3.10, fmod_ret syscall spoofing) is not yet implemented. This set is the future hook point for that wiring; 
+# today it only drives the [INTENT_VIOLATION] log and graph annotation.
+KDL_ACTIVE_PIDS = set()
 
 def touch(node_id, ts):
     """Record that `node_id` was touched by an event at kernel time `ts`."""
@@ -158,6 +164,32 @@ try:
                     G.add_edge(process_node_id, target, relation="OPENS", fd=fd, timestamp=ts)
                     touch(process_node_id, ts)
                     touch(target, ts)
+
+                # Section 3.6.3: Intent-Aware validation. "intent" is None
+                # (JSON null) for PIDs IntentShim never registered, those
+                # fall back to the standard SENSITIVE_KEYWORDS pipeline
+                # above only, per step 1 of the algorithm.
+                task_description = event.get("intent")
+                violation = validate_open_event(pid, target, task_description)
+                if violation is not None:
+                    if not G.has_node(process_node_id):
+                        G.add_node(process_node_id, type="process", comm=comm, pid=pid)
+
+                    G.nodes[process_node_id]["security_label"] = "INTENT_VIOLATION"
+                    G.nodes[process_node_id]["intent_violation_path"] = violation.path
+                    G.nodes[process_node_id]["intent_violation_pattern"] = violation.pattern
+                    G.nodes[process_node_id]["intent_task_description"] = violation.task_description
+                    G.nodes[process_node_id]["security_score"] = (
+                        G.nodes[process_node_id].get("security_score", 0) + 40
+                    )
+                    KDL_ACTIVE_PIDS.add(pid)
+                    touch(process_node_id, ts)
+                    print(
+                        f"[INTENT_VIOLATION] pid={pid} comm={comm!r} opened {violation.path!r} "
+                        f"(matched sensitive pattern {violation.pattern!r}) which is NOT justified "
+                        f"by its declared task: {violation.task_description!r}",
+                        flush=True,
+                    )
 
             # 4. NETWORK HANDLING 
             elif type_id == TYPE_TCP_CONNECT:

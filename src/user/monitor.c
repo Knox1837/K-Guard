@@ -1,5 +1,6 @@
 #define _POSIX_C_SOURCE 199309L
 #include <bpf/libbpf.h>
+#include <bpf/bpf.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -178,6 +179,15 @@ struct event_t {
 
 FILE *jsonl_file = NULL;
 
+// Section 3.6.2/3.6.3: intent_map fd is resolved once in 
+// main() and read-only here; src/user/intent_shim.py is the only writer via bpftool map update.
+static int g_intent_map_fd = -1;
+
+// Mirrors struct intent_val_t in src/kernel/kguard.bpf.c.
+struct intent_val_t {
+    char task[128];
+};
+
 void generate_session_id(char *buf) {
     int fd = open("/dev/urandom", O_RDONLY);
     if (fd < 0) {
@@ -270,6 +280,17 @@ static int handle_event(void *ctx, void *data, size_t sz) {
     }
 
     struct pid_degree_t *proc_stats = get_or_create_pid_entry(e->pid, e->start_time_ns);
+
+    // Section 3.6.3 step 1: on every FILE_OPEN event, look up the originating PID in intent_map
+    // via the skeleton fd instead of invoking bpftool; this is on the hot path for every open() syscall.
+    struct intent_val_t intent_val;
+    int has_intent = 0;
+    if (e->event_type == TYPE_OPEN && g_intent_map_fd >= 0) {
+        if (bpf_map_lookup_elem(g_intent_map_fd, &e->pid, &intent_val) == 0) {
+            intent_val.task[sizeof(intent_val.task) - 1] = '\0'; // defensive NUL-terminate
+            has_intent = 1;
+        }
+    }
 
     switch (e->event_type) {
         case TYPE_EXEC:
@@ -368,8 +389,15 @@ static int handle_event(void *ctx, void *data, size_t sz) {
                    e->pid, e->ppid, e->uid, e->gid, e->comm, e->filename);
             break;
         case TYPE_OPEN:
-            printf("\"event\": \"OPEN\", \"pid\": %u, \"ppid\": %u, \"uid\": %u, \"gid\": %u, \"comm\": \"%s\", \"target\": \"%s\", \"assigned_fd\": %lld}\n",
-                   e->pid, e->ppid, e->uid, e->gid, e->comm, e->filename, e->retval);
+            // Section 3.6.3: "intent" is the declared task description for this PID if IntentShim registered it before exec; 
+            // otherwise it is JSON null, so downstream consumers must fall back to the standard non-intent anomaly path only.
+            if (has_intent) {
+                printf("\"event\": \"OPEN\", \"pid\": %u, \"ppid\": %u, \"uid\": %u, \"gid\": %u, \"comm\": \"%s\", \"target\": \"%s\", \"assigned_fd\": %lld, \"intent\": \"%s\"}\n",
+                       e->pid, e->ppid, e->uid, e->gid, e->comm, e->filename, e->retval, json_escape(intent_val.task));
+            } else {
+                printf("\"event\": \"OPEN\", \"pid\": %u, \"ppid\": %u, \"uid\": %u, \"gid\": %u, \"comm\": \"%s\", \"target\": \"%s\", \"assigned_fd\": %lld, \"intent\": null}\n",
+                       e->pid, e->ppid, e->uid, e->gid, e->comm, e->filename, e->retval);
+            }
             break;
         case TYPE_FORK:
             printf("\"event\": \"FORK\", \"pid\": %u, \"ppid\": %u, \"comm\": \"%s\", \"child_pid\": %lld}\n",
@@ -700,6 +728,15 @@ int main(void) {
         kguard_bpf__destroy(skel);
         fclose(jsonl_file);
         return 1;
+    }
+
+    // Section 3.6.2: resolve intent_map's fd once so handle_event() can do
+    // a cheap per-OPEN-event lookup instead of any subprocess/bpftool call.
+    g_intent_map_fd = bpf_map__fd(skel->maps.intent_map);
+    if (g_intent_map_fd < 0) {
+        fprintf(stderr, "Warning: could not resolve intent_map fd — Intent-Aware "
+                         "pipeline will be inactive (all OPEN events will report "
+                         "\"intent\": null)\n");
     }
 
     rb = ring_buffer__new(bpf_map__fd(skel->maps.rb), handle_event, NULL, NULL);

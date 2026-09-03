@@ -180,6 +180,20 @@ struct {
     __type(value, unsigned long long); // Value: Timestamp
 } active_kernel_pids SEC(".maps");
 
+// Section 3.6.2: IntentShim PID map stores pre-exec task descriptions written by 
+// src/user/intent_shim.py; monitor.c reads it on TYPE_OPEN to attach intent context, 
+// while kernel space never interprets it (semantic analysis stays in user space via src/user/intent_validator.py).
+struct intent_val_t {
+    char task[128]; // 127 chars + NUL, per Section 3.6.2
+};
+
+struct {
+    __uint(type, BPF_MAP_TYPE_HASH);
+    __uint(max_entries, 4096);
+    __type(key, unsigned int);          // Key: PID
+    __type(value, struct intent_val_t); // Value: declared task description
+} intent_map SEC(".maps");
+
 // Inline helper to gather the base-level container and security context metrics
 static __always_inline void fill_common_context(struct event_t *e, unsigned int type) {
     unsigned long long pid_tgid = bpf_get_current_pid_tgid();
@@ -367,6 +381,11 @@ int handle_exit(struct trace_event_raw_sched_process_template *ctx) {
 
     // Delete the exiting PID from the CLC validation map
     bpf_map_delete_elem(&active_kernel_pids, &pid);
+
+    // Section 3.6.2: also clear any IntentShim entry for this PID so a
+    // future, unrelated process that recycles this PID cannot inherit a
+    // stale task description and be validated against the wrong intent.
+    bpf_map_delete_elem(&intent_map, &pid);
 
     struct event_t *e = bpf_ringbuf_reserve(&rb, sizeof(*e), 0);
     if (!e) return 0;

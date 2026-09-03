@@ -123,3 +123,56 @@ python3 script/revsh.py
 ```
 Back to the K-Guard GUI, Click "Stop & Save Graph".
 Detect the attack by clicking "Run ML Detector"
+
+## Intent-Aware Pipeline for AI Agent Workloads
+
+K-Guard can validate an AI coding agent's file accesses against the task
+it says it's doing, catching the case where a
+prompt-injected agent opens `~/.ssh/id_rsa`, `/etc/shadow`, `.env`, etc.
+for a task that never mentions them.
+
+### 1. Wrap the agent's subprocess creation with IntentShim
+
+```python
+from src.user.intent_shim import IntentShim
+
+shim = IntentShim()
+proc = shim.run(
+    ["python3", "backup_script.py"],
+    task_description="Back up project config files to S3",
+)
+proc.wait()
+```
+
+`IntentShim.run()` registers the task description against the child's PID
+in the kernel's `intent_map` *before* the child ever calls `exec()`.
+`monitor` must already be running
+for the write to have anywhere to land; if it isn't (or `bpftool`/`sudo`
+isn't available), the shim logs a warning and the child still runs
+normally, just without intent context for that run.
+
+### 2. Run the normal capture pipeline
+
+```bash
+sudo ./monitor | python3 src/user/graphengine.py
+```
+
+Every `FILE_OPEN` event from a PID with a registered intent is checked
+against `src/user/intent_validator.py`'s sensitive-path patterns (`.ssh/`,
+`/etc/shadow`, `.gnupg/`, `.env`, `credentials`). An unjustified sensitive
+open prints an `[INTENT_VIOLATION]` line to the console and marks the
+process node in the graph with `security_label: INTENT_VIOLATION`, you
+can see it in the interactive graph or in `output/system_behavior_graph.gexf`.
+
+PIDs with no registered intent (i.e. not launched through IntentShim)
+are unaffected and continue to go through the standard, non-intent
+anomaly pipeline only, per Section 3.6.3's step 1.
+
+### Try it without root/eBPF
+
+`src/user/intent_validator.py` is pure Python with no kernel dependency
+and has a small built-in self-test:
+
+```bash
+python3 src/user/intent_validator.py
+```

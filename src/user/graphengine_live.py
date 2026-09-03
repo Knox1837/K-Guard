@@ -11,6 +11,7 @@ from flask import Flask, render_template_string
 from flask_socketio import SocketIO, emit
 import threading
 import networkx as nx
+from intent_validator import validate_open_event
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'kguard-live-monitoring'
@@ -73,6 +74,12 @@ PRUNE_INTERVAL_SEC = 60
 node_last_seen = {}
 latest_event_ts = 0
 last_prune_time = time.time()
+
+# Section 3.6.3: PIDs that have raised an INTENT_VIOLATION. See the matching
+# comment in graphengine.py — this is the hook point for the not-yet-built
+# Kernel Deception Layer (Section 3.10); today it only drives the log line
+# and node annotation below.
+KDL_ACTIVE_PIDS = set()
 
 # Stats
 total_events = 0
@@ -225,6 +232,34 @@ def process_event(event):
             })
             touch(process_node_id, ts)
             touch(target, ts)
+
+        # Section 3.6.3: Intent-Aware validation. "intent" is None (JSON
+        # null) for PIDs IntentShim never registered — those fall back to
+        # the standard SENSITIVE_KEYWORDS pipeline above only, per step 1
+        # of the algorithm.
+        task_description = event.get("intent")
+        violation = validate_open_event(pid, target, task_description)
+        if violation is not None:
+            if not G.has_node(process_node_id):
+                G.add_node(process_node_id, type="process", comm=comm, pid=pid)
+                nodes_to_add.append(make_node_data(process_node_id, G.nodes[process_node_id]))
+
+            G.nodes[process_node_id]["security_label"] = "INTENT_VIOLATION"
+            G.nodes[process_node_id]["intent_violation_path"] = violation.path
+            G.nodes[process_node_id]["intent_violation_pattern"] = violation.pattern
+            G.nodes[process_node_id]["intent_task_description"] = violation.task_description
+            G.nodes[process_node_id]["security_score"] = (
+                G.nodes[process_node_id].get("security_score", 0) + 40
+            )
+            KDL_ACTIVE_PIDS.add(pid)
+            nodes_to_update.append(make_node_data(process_node_id, G.nodes[process_node_id]))
+            touch(process_node_id, ts)
+            print(
+                f"[INTENT_VIOLATION] pid={pid} comm={comm!r} opened {violation.path!r} "
+                f"(matched sensitive pattern {violation.pattern!r}) which is NOT justified "
+                f"by its declared task: {violation.task_description!r}",
+                flush=True,
+            )
     
     # 4. NETWORK CONNECT HANDLING
     elif type_id == TYPE_TCP_CONNECT:
